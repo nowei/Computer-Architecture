@@ -36,13 +36,17 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
 
   initial begin
     //  These are garbage.  You should replace with your code.
-    code_mem[0] = 32'hff124500;
-    code_mem[1] = 32'hff124501;
+    code_mem[0] = 32'hfa124500; //branch 1010Branchoffset
+    code_mem[1] = 32'h11124501; //add 000 10001 (23)shift(22) (21)imm12(10) (9)Rn(5)(4)Rd(0)
     code_mem[2] = 32'hff124567;
+    
+    for (i = 0; i <= 31; i++) begin
+      rf[i] = 32'b0;
+    end
   end
 
   always @(posedge clk) begin
-    code_mem_rd <= code_mem[code_addr];
+    code_mem_rd <= code_mem[code_addr]; //inst = code_memory[pc]
   end
 
   reg [29:0]  pc;
@@ -52,17 +56,17 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
   assign debug_port1 = pc[7:0];
   assign debug_port2 = code_mem_rd[7:0];
   assign debug_port3 = data_mem_rd[7:0];
-  
+
   assign code_addr = pc[code_addr_width - 1:0];
 
-  reg [31:0] rf[0:31];
-  reg [31:0] rf_d1;
-  reg [31:0] rf_d2;
-  reg [4:0] rf_rs1;
-  reg [4:0] rf_rs2;
-  reg [4:0] rf_ws;
-  reg [31:0] rf_wd;
-  reg rf_we;
+  reg [31:0] rf[0:31]; //register file
+  reg [31:0] rf_d1;    //read data 1
+  reg [31:0] rf_d2;    //read data 2
+  reg [4:0] rf_rs1;    //read register 1
+  reg [4:0] rf_rs2;    //read register 2
+  reg [4:0] rf_ws;     //write register
+  reg [31:0] rf_wd;    //write data
+  reg rf_we;           //write enable
 
   always @(posedge clk) begin
     rf_d1 <= rf[rf_rs1];
@@ -70,57 +74,48 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
     if (!resetn && rf_we)
       rf[rf_ws] <= rf_wd;
   end
-  
+
   always @(posedge clk) begin
     data_mem_wd <= 0;
-    data_addr <= 0;
-//   code_addr <= 0;
+    //data_addr <= 0;
+    code_addr <= 0;
     data_mem_we <= 0;
     if (!resetn) begin
       pc <= 0;
     end else begin
-      data_addr <= pc;
-      
+      //data_addr <= pc;
+
       rf_rs1 <= code_mem_rd[4:0];
       rf_rs2 <= code_mem_rd[9:5];
       rf_ws <= code_mem_rd[14:10];
       rf_we <= code_mem_rd[15];
       rf_wd <= code_mem_rd;
 
-      //code_addr <= pc;
+      code_addr <= pc;
       if (pc > 2)
         pc <= 0;
       else
+      //if (code_mem_rd == 'branch')
+          //pc <= compute_target(pc, code_mem_rd);
+      //if (code_mem_rd[27:25] == 3'b101) //BRANCH
+          //pc = pc + {8'b0, code_mem_rd[23:0]};
+      //else if (code_mem_rd[28:24] == 5'b10001) //ADD
+        //rf[rf_rs1] = rf[rf_rs2] + {10'b0,code_mem_rd[21:10],10'b0}; //rd = rn + imm12
         pc <= pc + 1;//rf_d1 + rf_d2 + 1;
     end
   end
 
 endmodule
 
-
-
-// TODO: Create this, implement unconditional branch, B,
-// and ADD to use the register file. 
-/*
-    1. inst = code_memory[pc]
-    2. pc = pc + 4
-    3. if (inst == branch)
-    4.     pc = compute_target(pc, inst)
-
-    5. r1 = register_file(rm(inst));
-    6. r2 = register_file(rn(inst));
-    7. const = constant(inst);
-*/
-/*
-reg [31:0]  register_file[0:31];
-
-wire [31:0] read_result1;
-wire [31:0] read_result2;
-
-assign read_result1 = register_file[read_select1];
-assign read_result2 = register_file[read_select1];
-
-always @(posedge clock)
- if (register_write_enable)
-  register_file[write_select] <= write_data;
-*/
+//Intruction Fetch - obtain inst from program storage
+//    Get mem[pc]
+//Instruction Decode - Determine required actions and inst size
+//    figure out op, operands
+//Operand Fetch - Locate and obatin operand data
+//    Get X1 + X2 from regfile
+//Execute - Compute results or status
+//    Set control on ALU (branch, add...)
+//Result Store - Deposit results in storage for later use
+//    ALU output to regfile at X0
+// Next Instruction - Determin successor instruction
+//    Update PC = PC + 4
