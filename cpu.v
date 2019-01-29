@@ -35,9 +35,12 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
   wire [code_addr_width - 1:0] code_addr;
   reg[5:0] i;
   initial begin
-    code_mem[0] = 32'hfa000001; //branch 1010Branchoffset
+    code_mem[0] = 32'hfa000002; //branch 1010Branchoffset
     code_mem[1] = 32'h00000000; // Show that it branches
-    code_mem[2] = 32'h11000400; //add 000 10001 (23)shift(22) (21)imm12(10) (9)Rn(5)(4)Rd(0)
+    code_mem[2] = 32'h00000000; // Show that it branches
+    code_mem[3] = 32'h11000421; //add 000 10001 (23)shift(22) (21)imm12(10) (9)Rn(5)(4)Rd(0)
+    code_mem[4] = 32'h00000000; // Show that it branches
+    code_mem[5] = 32'h00000000; // Show that it branches
     for (i = 0; i < 30; i = i + 1) begin
       rf[i] = 32'b0;
     end
@@ -90,20 +93,21 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
       rf_wd <= code_mem_rd;
 
       //code_addr <= pc;
-      if (pc > 2) begin
+      if (pc > 5) begin
         pc <= 0;
         end
       else begin
-        pc <= pc + 1;//rf_d1 + rf_d2 + 1;
         if (code_mem_rd[27:25] == 3'b101) begin // BRANCH
           pc <= pc + {8'b0, code_mem_rd[23:0]};
-          data_mem_we <= 1;
-          data_mem_wd <= 8;
+          // data_mem_we <= 1;
+          // data_mem_wd <= 8;
         end
-        if (code_mem_rd[28:24] == 5'b10001) begin // ADD
+        else
+          pc <= pc + 1;//rf_d1 + rf_d2 + 1;
+        if (code_mem_rd[30:24] == 7'b0010001) begin // ADD
           rf[rf_rs1] <= rf[rf_rs2] + {20'b0,code_mem_rd[21:10]}; //rd = rn + imm12
           data_mem_we <= 1;
-          data_mem_wd <= 16;
+          data_mem_wd <= rf[rf_rs1];
         end
       end
     end
