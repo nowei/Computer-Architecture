@@ -38,7 +38,7 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
     //  These are garbage.  You should replace with your code.
     code_mem[0] = 32'hfa000002; //branch 1010Branchoffset
     code_mem[1] = 32'h00000000; // Show that it branches
-    code_mem[2] = 32'h11000100; //add 000 10001 (23)shift(22) (21)imm12(10) (9)Rn(5)(4)Rd(0)
+    code_mem[2] = 32'h11000400; //add 000 10001 (23)shift(22) (21)imm12(10) (9)Rn(5)(4)Rd(0)
     for (i = 0; i <= 31; i = i + 1) begin
       rf[i] = 32'b0;
     end
@@ -91,19 +91,21 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
       rf_wd <= code_mem_rd;
 
       code_addr <= pc;
+      pc <= pc + 1;//rf_d1 + rf_d2 + 1;
       if (pc > 2)
         pc <= 0;
-      else
-      //if (code_mem_rd == 'branch')
-          //pc <= compute_target(pc, code_mem_rd);
-      if (code_mem_rd[27:25] == 3'b101) //BRANCH
-        pc <= pc + {8'b0, code_mem_rd[23:0]};
-      else if (code_mem_rd[28:24] == 5'b10001) begin//ADD
-        rf[rf_rs1] <= rf[rf_rs2] + {10'b0,code_mem_rd[21:10],10'b0}; //rd = rn + imm12
-        data_mem_we <= 1;
-        data_mem_wd <= rf[rf_rs1][7:0];
+      else begin
+        if (code_mem_rd[27:25] == 3'b101) begin//BRANCH
+            pc <= pc + {8'b0, code_mem_rd[23:0]};
+            data_mem_we <= 1;
+            data_mem_wd <= 33;
+        end
+        else begin
+          if (code_mem_rd[28:24] == 5'b10001) begin//ADD
+            rf[rf_rs1] <= rf[rf_rs2] + {20'b0,code_mem_rd[21:10]}; //rd = rn + imm12
+          end
+        end
       end
-      pc <= pc + 1;//rf_d1 + rf_d2 + 1;
     end
   end
 
