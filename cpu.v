@@ -35,17 +35,16 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
   wire [code_addr_width - 1:0] code_addr;
   reg[5:0] i;
   initial begin
-    //  These are garbage.  You should replace with your code.
-    code_mem[0] = 32'hfa000002; //branch 1010Branchoffset
+    code_mem[0] = 32'hfa000001; //branch 1010Branchoffset
     code_mem[1] = 32'h00000000; // Show that it branches
     code_mem[2] = 32'h11000400; //add 000 10001 (23)shift(22) (21)imm12(10) (9)Rn(5)(4)Rd(0)
-    for (i = 0; i <= 31; i = i + 1) begin
+    for (i = 0; i < 30; i = i + 1) begin
       rf[i] = 32'b0;
     end
   end
 
   always @(posedge clk) begin
-    code_mem_rd <= code_mem[code_addr]; //inst = code_memory[pc]
+    code_mem_rd <= code_mem[code_addr];
   end
 
   reg [29:0]  pc;
@@ -58,14 +57,14 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
 
   assign code_addr = pc[code_addr_width - 1:0];
 
-  reg [31:0] rf[0:31]; //register file
-  reg [31:0] rf_d1;    //read data 1
-  reg [31:0] rf_d2;    //read data 2
-  reg [4:0] rf_rs1;    //read register 1
-  reg [4:0] rf_rs2;    //read register 2
-  reg [4:0] rf_ws;     //write register
-  reg [31:0] rf_wd;    //write data
-  reg rf_we;           //write enable
+  reg [31:0] rf[0:31];
+  reg [31:0] rf_d1;
+  reg [31:0] rf_d2;
+  reg [4:0] rf_rs1;
+  reg [4:0] rf_rs2;
+  reg [4:0] rf_ws;
+  reg [31:0] rf_wd;
+  reg rf_we;
 
   always @(posedge clk) begin
     rf_d1 <= rf[rf_rs1];
@@ -77,7 +76,7 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
   always @(posedge clk) begin
     data_mem_wd <= 0;
     data_addr <= 0;
-    code_addr <= 0;
+//   code_addr <= 0;
     data_mem_we <= 0;
     if (!resetn) begin
       pc <= 0;
@@ -90,26 +89,28 @@ localparam code_addr_width = code_words_l2 - code_width_l2b;
       rf_we <= code_mem_rd[15];
       rf_wd <= code_mem_rd;
 
-      code_addr <= pc;
-      pc <= pc + 1;//rf_d1 + rf_d2 + 1;
-      if (pc > 2)
+      //code_addr <= pc;
+      if (pc > 2) begin
         pc <= 0;
-      else begin
-        if (code_mem_rd[27:25] == 3'b101) begin//BRANCH
-            pc <= pc + {8'b0, code_mem_rd[23:0]};
-            data_mem_we <= 1;
-            data_mem_wd <= 33;
         end
-        else begin
-          if (code_mem_rd[28:24] == 5'b10001) begin//ADD
-            rf[rf_rs1] <= rf[rf_rs2] + {20'b0,code_mem_rd[21:10]}; //rd = rn + imm12
-          end
+      else begin
+        pc <= pc + 1;//rf_d1 + rf_d2 + 1;
+        if (code_mem_rd[27:25] == 3'b101) begin // BRANCH
+          pc <= pc + {8'b0, code_mem_rd[23:0]};
+          data_mem_we <= 1;
+          data_mem_wd <= 8;
+        end
+        if (code_mem_rd[28:24] == 5'b10001) begin // ADD
+          rf[rf_rs1] <= rf[rf_rs2] + {20'b0,code_mem_rd[21:10]}; //rd = rn + imm12
+          data_mem_we <= 1;
+          data_mem_wd <= 16;
         end
       end
     end
   end
 
 endmodule
+
 
 //Intruction Fetch - obtain inst from program storage
 //    Get mem[pc]
