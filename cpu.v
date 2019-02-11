@@ -198,14 +198,84 @@ endfunction
   end
 
   // "Execute" the instruction
-  reg [31:0] alu_result;
+  reg [32:0] alu_result;
+  reg [31:0] rf_d1_copy;
+  reg [31:0] operand2_copy;
   always @(*) begin
-      alu_result = 32'h0000_0000;
+      alu_result = 33'h0_0000_0000;
+      rf_d1_copy = rf_d1;
+      operand2_copy = operand2;
       case (inst_opcode(inst))
-        opcode_add: alu_result = rf_d1 + operand2;
+        opcode_and: alu_result = rf_d1 & operand2;
+        opcode_eor: alu_result = (rf_d1 & ~operand2) | (~rf_d1 & operand2);
+        opcode_sub: begin
+                      alu_result = rf_d1 + ~operand2 + 1;
+                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) || 
+                                        (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
+                    end
+        opcode_rsb: begin
+                      alu_result = operand2 + ~rf_d1 + 1;
+                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) || 
+                                        (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
+                    end
+        opcode_add: begin
+                      alu_result = rf_d1 + operand2;
+                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) || 
+                                        (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
+                    end
+        opcode_adc: begin
+                      alu_result = rf_d1 + operand2 + cpsr[cpsr_c];
+                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) || 
+                                        (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
+                    end
+        opcode_sbc: begin
+                      alu_result = rf_d1 + ~operand2 + cpsr[cpsr_c];
+                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) || 
+                                        (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
+                    end
+        opcode_rsc: begin
+                      alu_result = operand2 + ~rf_d1 + cpsr[cpsr_c]; 
+                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) || 
+                                        (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
+                    end
+        opcode_tst: alu_result = rf_d1 & operand2;
+        opcode_teq: alu_result = rf_d1 ^ operand2;
+        opcode_cmp: begin
+                      alu_result = rf_d1 + ~operand2 + 1;
+                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1> 0) || 
+                                        (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
+                    end
+        opcode_cmpn: begin
+                      alu_result = rf_d1 + operand2;
+                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) || 
+                                        (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
+                    end
+        opcode_orr: alu_result = rf_d1 | operand2;
+        opcode_mov: alu_result = operand2;
+        opcode_bic: alu_result = rf_d1 & ~operand2;
+        opcode_mvn: alu_result = 32'hFFFF_FFFF ^ operand2;
       endcase
 
-      rf_wd = alu_result;
+      // Updates condition bits 
+      if (inst[20] == 1'b1 && rf_ws != 4'b1111) begin
+        cpsr[cpsr_c] = alu_result[32];
+        cpsr[cpsr_z] = (alu_result == 33'h0_0000_0000 ? 1 : 0);
+        cpsr[cpsr_n] = alu_result[31];
+      end
+
+      if (inst_opcode(inst) != opcode_tst &&
+          inst_opcode(inst) != opcode_teq &&
+          inst_opcode(inst) != opcode_cmp &&
+          inst_opcode(inst) != opcode_cmpn) 
+        rf_wd = alu_result[31:0];
   end
 
   // "Write back" the instruction
@@ -224,9 +294,23 @@ endfunction
 
       if (inst_type(inst) == inst_type_branch) begin
         case (inst_cond(inst))
+          cond_eq: (cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+          cond_ne: (~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+          cond_cs: (cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
+          cond_cc: (~cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
+          cond_ns: (cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
+          cond_nc: (~cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
+          cond_vs: (cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+          cond_vc: (~cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+          cond_hi: (cpsr[cpsr_c] && ~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+          cond_ls: (~cpsr[cpsr_c] || cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+          cond_ge: (cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+          cond_lt: (cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+          cond_gt: (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+          cond_le: (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
           cond_al:  pc <= branch_target;
         endcase
-        pc <= branch_target;
+        // pc <= branch_target;
       end
     end
   end
