@@ -326,8 +326,25 @@ endfunction
           // pc <= branch_target; marks comment
       end
       else if (inst_type(inst) == inst_type_ldr_str) begin
-
-      end
+        
+      //   case (inst_cond(inst))
+      //     cond_eq: if (cpsr[cpsr_z] == 1'b1) ;
+      //     cond_ne: if (~cpsr[cpsr_z]) ; 
+      //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
+      //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
+      //     cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
+      //     cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
+      //     cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
+      //     cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
+      //     cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
+      //     cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
+      //     cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+      //     cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+      //     cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+      //     cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+      //     cond_al: pc <= branch_target;
+      //   endcase
+      // end
     end
   end
 
