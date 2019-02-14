@@ -329,7 +329,7 @@ endfunction
       else if (inst_type(inst) == inst_type_ldr_str) begin
         //  if (inst_branch_isLoad(inst) == inst_type_load) begin
         //   case (inst_cond(inst))
-        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) rf[inst_rd] <= 
+        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) rf[inst_rd] <= ...dataMem[address = rf[inst_rn]]?????? idk where data memory is in this
         //     cond_ne: if (~cpsr[cpsr_z]) ; 
         //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
         //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
@@ -348,7 +348,7 @@ endfunction
         //  end
         //  else begin //STORE to mem
         //   case (inst_cond(inst))
-        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) ;
+        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) ; dataMem[address = rf[inst_rn]] <= rf[inst_rd]  ??????
         //     cond_ne: if (~cpsr[cpsr_z]) ; 
         //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
         //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
