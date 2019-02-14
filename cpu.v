@@ -326,7 +326,7 @@ endfunction
           // pc <= branch_target; marks comment
       end
       else if (inst_type(inst) == inst_type_ldr_str) begin
-        
+
       end
     end
   end
