@@ -305,21 +305,21 @@ endfunction
         //  r14 <= pc + 4; // loads LR with next instruction
         //end
           case (inst_cond(inst))
-            cond_eq: (cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
-            cond_ne: (~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
-            cond_cs: (cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
-            cond_cc: (~cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
-            cond_ns: (cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
-            cond_nc: (~cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
-            cond_vs: (cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-            cond_vc: (~cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-            cond_hi: (cpsr[cpsr_c] && ~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
-            cond_ls: (~cpsr[cpsr_c] || cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
-            cond_ge: (cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-            cond_lt: (cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-            cond_gt: (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-            cond_le: (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-            cond_al:  pc <= branch_target;
+            cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
+            cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target; 
+            cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
+            cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
+            cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
+            cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
+            cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
+            cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
+            cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
+            cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
+            cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+            cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+            cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+            cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+            cond_al: pc <= branch_target;
           endcase
           // pc <= branch_target; marks comment
       end
