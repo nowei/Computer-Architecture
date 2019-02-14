@@ -122,18 +122,19 @@ function automatic inst_branch_islink;
     inst_branch_islink = inst[24];
 endfunction
 
+//might want this to distinguish for Load/Store Bit
+// inst[20] = 1 or Load, = 0 for Store  
+localparam inst_type_load = 1'b1;
+function automatic inst_branch_isload;
+    input [31:0]   inst;
+    inst_branch_islink = inst[20];
+endfunction
+
 function automatic [31:0] inst_branch_imm;
     input [31:0]  inst;
     inst_branch_imm = { {6{inst[23]}}, inst[23:0], 2'b00 };
 endfunction
 
-//localparam inst_type_branch = 4'b1010; //index 0 is the Link bit
-//localparam inst_type_branch_link = 4'b1011;
-//function automatic [3:0] inst_type;
-  //  input [31:0] inst;
-  //  inst_type = inst[27:24];
-//endfunction
-//************IDK why he only used 2 bits for the branch instruction cause in data sheet it looks like its 4
 localparam inst_type_branch = 2'b10;
 localparam inst_type_data_proc = 2'b00;
 localparam inst_type_ldr_str = 2'b01;
@@ -326,24 +327,44 @@ endfunction
           // pc <= branch_target; marks comment
       end
       else if (inst_type(inst) == inst_type_ldr_str) begin
-        
-      //   case (inst_cond(inst))
-      //     cond_eq: if (cpsr[cpsr_z] == 1'b1) ;
-      //     cond_ne: if (~cpsr[cpsr_z]) ; 
-      //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
-      //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
-      //     cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
-      //     cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
-      //     cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
-      //     cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
-      //     cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
-      //     cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
-      //     cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-      //     cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-      //     cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-      //     cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-      //     cond_al: pc <= branch_target;
-      //   endcase
+        //  if (inst_branch_isLoad(inst) == inst_type_load) begin
+        //   case (inst_cond(inst))
+        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) rf[inst_rd] <= 
+        //     cond_ne: if (~cpsr[cpsr_z]) ; 
+        //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
+        //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
+        //     cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
+        //     cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
+        //     cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
+        //     cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
+        //     cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_al: pc <= branch_target;
+        //   endcase
+        //  end
+        //  else begin //STORE to mem
+        //   case (inst_cond(inst))
+        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) ;
+        //     cond_ne: if (~cpsr[cpsr_z]) ; 
+        //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
+        //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
+        //     cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
+        //     cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
+        //     cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
+        //     cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
+        //     cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+        //     cond_al: pc <= branch_target;
+        //   endcase
+        //  end
       // end
     end
   end
