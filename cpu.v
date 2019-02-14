@@ -15,6 +15,7 @@ module cpu(
   wire [code_width - 1:0]  code_mem_rd;
   wire [code_addr_width - 1:0] code_addr;
 
+
   initial begin
     code_mem[0] = 32'b1110_000_0100_0_0010_0010_00000000_0001;  // ADD r2, r2, r1
     code_mem[1] = 32'b1110_101_0_11111111_11111111_11111101;  // branch -12 which is PC = (PC + 8) - 12 = PC - 4
@@ -115,7 +116,7 @@ function automatic [3:0] inst_cond;
     inst_cond = inst[31:28];
 endfunction
 
-//localparam inst_type_branchLink = 1'b1;
+localparam inst_type_branchLink = 1'b1;
 function automatic inst_branch_islink;
     input [31:0]   inst;
     inst_branch_islink = inst[24];
@@ -135,6 +136,7 @@ endfunction
 //************IDK why he only used 2 bits for the branch instruction cause in data sheet it looks like its 4
 localparam inst_type_branch = 2'b10;
 localparam inst_type_data_proc = 2'b00;
+localparam inst_type_ldr_str = 2'b01;
 function automatic [1:0] inst_type;
     input [31:0]  inst;
     inst_type = inst[27:26];
@@ -301,27 +303,30 @@ endfunction
       pc <= pc + 4;
 
       if (inst_type(inst) == inst_type_branch) begin
-        //if (inst_branch_islink(inst) == inst_type_branchLink) begin
-        //  r14 <= pc + 4; // loads LR with next instruction
-        //end
-          case (inst_cond(inst))
-            cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
-            cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target; 
-            cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
-            cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
-            cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
-            cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
-            cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
-            cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
-            cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
-            cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
-            cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-            cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-            cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-            cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-            cond_al: pc <= branch_target;
-          endcase
+        if (inst_branch_islink(inst) == inst_type_branchLink) begin
+          rf[r14] <= pc + 4; // loads LR with next instruction
+        end
+        case (inst_cond(inst))
+          cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
+          cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target; 
+          cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
+          cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
+          cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
+          cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
+          cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
+          cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
+          cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
+          cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
+          cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+          cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+          cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+          cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+          cond_al: pc <= branch_target;
+        endcase
           // pc <= branch_target; marks comment
+      end
+      else if (inst_type(inst) == inst_type_ldr_str) begin
+        
       end
     end
   end
