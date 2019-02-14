@@ -35,7 +35,7 @@ initial begin
   rf[1] <= 32'd1;     // for testing
 end
   localparam r15 = 4'b1111;
-  localparam r14 = 4'b1110;
+  localparam r14 = 4'b1110; //Link Register
   
   reg [31:0] cpsr;    // program status register
   localparam cpsr_n = 31;
@@ -115,6 +115,7 @@ function automatic [3:0] inst_cond;
     inst_cond = inst[31:28];
 endfunction
 
+//localparam inst_type_branchLink = 1'b1;
 function automatic inst_branch_islink;
     input [31:0]   inst;
     inst_branch_islink = inst[24];
@@ -125,6 +126,13 @@ function automatic [31:0] inst_branch_imm;
     inst_branch_imm = { {6{inst[23]}}, inst[23:0], 2'b00 };
 endfunction
 
+//localparam inst_type_branch = 4'b1010; //index 0 is the Link bit
+//localparam inst_type_branch_link = 4'b1011;
+//function automatic [3:0] inst_type;
+  //  input [31:0] inst;
+  //  inst_type = inst[27:24];
+//endfunction
+//************IDK why he only used 2 bits for the branch instruction cause in data sheet it looks like its 4
 localparam inst_type_branch = 2'b10;
 localparam inst_type_data_proc = 2'b00;
 function automatic [1:0] inst_type;
@@ -293,24 +301,46 @@ endfunction
       pc <= pc + 4;
 
       if (inst_type(inst) == inst_type_branch) begin
-        case (inst_cond(inst))
-          cond_eq: (cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
-          cond_ne: (~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
-          cond_cs: (cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
-          cond_cc: (~cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
-          cond_ns: (cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
-          cond_nc: (~cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
-          cond_vs: (cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-          cond_vc: (~cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-          cond_hi: (cpsr[cpsr_c] && ~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
-          cond_ls: (~cpsr[cpsr_c] || cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
-          cond_ge: (cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-          cond_lt: (cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-          cond_gt: (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-          cond_le: (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
-          cond_al:  pc <= branch_target;
-        endcase
-        // pc <= branch_target;
+        //if (inst_branch_islink(inst) != inst_type_branchLink) begin
+          case (inst_cond(inst))
+            cond_eq: (cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+            cond_ne: (~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+            cond_cs: (cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
+            cond_cc: (~cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
+            cond_ns: (cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
+            cond_nc: (~cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
+            cond_vs: (cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+            cond_vc: (~cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+            cond_hi: (cpsr[cpsr_c] && ~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+            cond_ls: (~cpsr[cpsr_c] || cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+            cond_ge: (cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+            cond_lt: (cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+            cond_gt: (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+            cond_le: (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+            cond_al:  pc <= branch_target;
+          endcase
+          // pc <= branch_target; marks comment
+        //end
+        //else if (inst_branch_islink(inst) == inst_type_branchLink) begin
+        // r14 <= pc + 4; //loads LR with next inst for return
+          //case (inst_cond(inst))
+              //cond_eq: (cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+              //cond_ne: (~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+              //cond_cs: (cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
+              //cond_cc: (~cpsr[cpsr_c] ? pc <= branch_target : pc <= pc);
+              //cond_ns: (cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
+              //cond_nc: (~cpsr[cpsr_n] ? pc <= branch_target : pc <= pc);
+              //cond_vs: (cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+              //cond_vc: (~cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+              //cond_hi: (cpsr[cpsr_c] && ~cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+              //cond_ls: (~cpsr[cpsr_c] || cpsr[cpsr_z] ? pc <= branch_target : pc <= pc);
+              //cond_ge: (cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+              //cond_lt: (cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+              //cond_gt: (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+              //cond_le: (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v] ? pc <= branch_target : pc <= pc);
+              //cond_al:  pc <= branch_target;
+            //endcase
+        //end
       end
     end
   end
