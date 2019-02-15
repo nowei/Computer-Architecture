@@ -15,13 +15,15 @@ module cpu(
   reg [data_width - 1:0]  data_mem[data_words - 1:0];
   reg [data_width - 1:0]  data_mem_rd;
   reg [data_width - 1:0]  data_mem_wd;
-  reg [data_addr_width - 1:0] data_addr;
+  reg [data_addr_width - 1:0] data_addr_rd;
+  reg [data_addr_width - 1:0] data_addr_wd;
   reg data_mem_we;
 
+  // Synchronous memories
   always @(posedge clk) begin
     if (data_mem_we)
-        data_mem[data_addr] <= data_mem_wd;
-    data_mem_rd <= data_mem[data_addr];
+        data_mem[data_addr_wd] <= data_mem_wd;
+    data_mem_rd <= data_mem[data_addr_rd];
   end
 
   localparam code_width = 32;
@@ -148,9 +150,9 @@ endfunction
 //might want this to distinguish for Load/Store Bit
 // inst[20] = 1 or Load, = 0 for Store
 localparam inst_type_load = 1'b1;
-function automatic inst_branch_isload;
+function automatic inst_ldrstr_isload;
     input [31:0]   inst;
-    inst_branch_isload = inst[20];
+    inst_ldrstr_isload = inst[20];
 endfunction
 
 function automatic [31:0] inst_branch_imm;
@@ -216,11 +218,16 @@ endfunction
     if (inst_branch_islink(inst) == inst_type_branchLink && 
         inst_type(inst) == inst_type_branch)
       rf_ws = r14;
+    else if (inst_type(inst) == inst_type_ldr_str) begin
+      if (inst_ldrstr_isload(inst) == inst_type_load) 
+        rf_ws = rf[inst_rn(inst)];
+      else
+        data_addr_wd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
+    end
     else
       rf_ws = inst_rd(inst);
   end
 
-  // CONFLICTING DRIVERS HEREEEEEEEEEEEEEEEEEEEEEE
   // "Decode" whether we write the register file
   always @(*) begin
     rf_we = 1'b0;
@@ -234,19 +241,13 @@ endfunction
         inst_type_data_proc:
           if (inst_cond(inst) == cond_al)
             rf_we = 1'b1;
-
         inst_type_ldr_str:
-          if (inst_branch_isload(inst) == inst_type_load) begin
-            // rd is source
-            rf[inst_rn(inst)] = data_mem[rf[inst_rd(inst)] + inst_ldrstr_imm(inst)];
-          end
-          else begin // store
-            // rd is destination
-            data_mem[rf[inst_rd(inst)] + inst_ldrstr_imm(inst)] = rf[inst_rn(inst)];
-          end
+          if (inst_ldrstr_isload(inst) == inst_type_load)
+            rf_we = 1'b1;
+          else
+            data_mem_we = 1'b1;
     endcase
   end
-  // CONFLICTING DRIVERS FOUND
 
   // "Decode" the branch target
   reg [31:0] branch_target;
@@ -260,6 +261,19 @@ endfunction
       if (inst_branch_islink(inst) == inst_type_branchLink && 
           inst_type(inst) == inst_type_branch) 
         rf_wd = pc + 4; // loads LR with next instruction
+
+      else if (inst_type(inst) == inst_type_ldr_str) begin
+        if (inst_ldrstr_isload(inst) == inst_type_load) begin
+          // rd is source
+          data_addr_rd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
+          // writes to rf[inst_rn(inst)] 
+        end
+        else begin // store
+          // rd is destination
+          alu_result = rf[inst_rn(inst)];
+          // writes to data_mem[rf[inst_rd(inst)] + inst_ldrstr_imm(inst)]
+        end
+      end
       else
       begin
         alu_result = 33'h0_0000_0000;
@@ -328,20 +342,26 @@ endfunction
           cpsr[cpsr_z] = (alu_result == 33'h0_0000_0000 ? 1 : 0);
           cpsr[cpsr_n] = alu_result[31];
         end
+      end
 
-        if (inst_opcode(inst) != opcode_tst &&
-            inst_opcode(inst) != opcode_teq &&
-            inst_opcode(inst) != opcode_cmp &&
-            inst_opcode(inst) != opcode_cmpn)
-          rf_wd = alu_result[31:0];
+      if (inst_opcode(inst) != opcode_tst &&
+          inst_opcode(inst) != opcode_teq &&
+          inst_opcode(inst) != opcode_cmp &&
+          inst_opcode(inst) != opcode_cmpn) 
+      begin
+        if (inst_type(inst) == inst_type_ldr_str && inst_ldrstr_isload(inst) != inst_type_load)
+          data_mem_wd = alu_result[31:0];
+        else
+          rf_wd = data_mem_rd;
       end
   end
 
   // "Write back" the instruction
   always @(posedge clk) begin
     if (nreset && rf_we)
-      if (rf_ws != r15)
+      if (rf_ws != r15) // Also writes from data mem to register
         rf[rf_ws] <= rf_wd;
+
   end
 
   always @(posedge clk) begin
@@ -375,7 +395,7 @@ endfunction
           // pc <= branch_target; marks comment
       end
     end
-        //  if (inst_branch_isLoad(inst) == inst_type_load) begin
+        //  if (inst_ldrstr_isload(inst) == inst_type_load) begin
         //   case (inst_cond(inst))
         //     cond_eq: if (cpsr[cpsr_z] == 1'b1) rf[inst_rd] <= data_mem[rf[inst_rn]];??????  rf[inst_rn] = address?
         //     cond_ne: if (~cpsr[cpsr_z]) ;
