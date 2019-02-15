@@ -26,7 +26,7 @@ module cpu(
 
   localparam code_width = 32;
   localparam code_width_l2b = $clog2(code_width / 8);
-  localparam code_words = 8;
+  localparam code_words = 16;
   localparam code_words_l2 = $clog2(code_words);
   localparam code_addr_width = code_words_l2;
   reg [code_width - 1:0]  code_mem[0:code_words - 1];
@@ -209,12 +209,14 @@ endfunction
   always @(*) begin
     rf_rs1 = inst_rn(inst);
     rf_rs2 = inst_rm(inst);
-    if (inst_branch_islink(inst) == inst_type_branchLink && inst_type(inst) == inst_type_branch)
+    if (inst_branch_islink(inst) == inst_type_branchLink && 
+        inst_type(inst) == inst_type_branch)
       rf_ws = r14;
     else
       rf_ws = inst_rd(inst);
   end
 
+  // CONFLICTING DRIVERS HEREEEEEEEEEEEEEEEEEEEEEE
   // "Decode" whether we write the register file
   always @(*) begin
     rf_we = 1'b0;
@@ -224,9 +226,11 @@ endfunction
           // rf_we = 1'b0;
           if (inst_branch_islink(inst) == 1)
             rf_we = 1'b1;
+
         inst_type_data_proc:
           if (inst_cond(inst) == cond_al)
             rf_we = 1'b1;
+
         inst_type_ldr_str:
           if (inst_branch_isload(inst) == inst_type_load) begin
             // rd is source
@@ -248,7 +252,8 @@ endfunction
   // "Execute" the instruction
   reg [32:0] alu_result;
   always @(*) begin
-      if (inst_branch_islink(inst) == inst_type_branchLink && inst_type(inst) == inst_type_branch) 
+      if (inst_branch_islink(inst) == inst_type_branchLink && 
+          inst_type(inst) == inst_type_branch) 
         rf_wd = pc + 4; // loads LR with next instruction
       else
       begin
@@ -335,8 +340,8 @@ endfunction
   end
 
   always @(posedge clk) begin
-    data_mem_wd = 0; //added this in from lab 1 starter from here to
-    data_addr = 0;
+    // data_mem_wd = 0; //added this in from lab 1 starter from here to
+    // data_addr = 0;
   //   code_addr <= 0;
     // data_mem_we = 0; //HERE. made this note just in case anything breaks
     if (!nreset)
