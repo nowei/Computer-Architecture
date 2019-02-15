@@ -160,7 +160,11 @@ endfunction
 
 localparam inst_type_branch = 2'b10;
 localparam inst_type_data_proc = 2'b00;
+
+// CHANGING THIS TO 2'b00 makes it compile
 localparam inst_type_ldr_str = 2'b01;
+// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 function automatic [1:0] inst_type;
     input [31:0]  inst;
     inst_type = inst[27:26];
@@ -242,6 +246,7 @@ endfunction
           end
     endcase
   end
+  // CONFLICTING DRIVERS FOUND
 
   // "Decode" the branch target
   reg [31:0] branch_target;
