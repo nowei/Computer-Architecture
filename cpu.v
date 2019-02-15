@@ -8,7 +8,7 @@ module cpu(
   );
   localparam data_width = 32;
   localparam data_width_l2b = $clog2(data_width / 8);
-  localparam data_words = 512;
+  localparam data_words = 32;
   localparam data_words_l2 = $clog2(data_words);
   localparam data_addr_width = data_words_l2;
 
@@ -106,6 +106,11 @@ function automatic [7:0] inst_data_proc_imm;
     inst_data_proc_imm = inst[7:0];
 endfunction
 
+function automatic [11:0] inst_ldrstr_imm;
+    input [31:0]  inst;
+    inst_ldrstr_imm = inst[11:0];
+endfunction
+
 localparam operand2_is_reg = 1'b0;
 localparam operand2_is_imm  = 1'b1;
 function automatic operand2_type;
@@ -145,7 +150,7 @@ endfunction
 localparam inst_type_load = 1'b1;
 function automatic inst_branch_isload;
     input [31:0]   inst;
-    inst_branch_islink = inst[20];
+    inst_branch_isload = inst[20];
 endfunction
 
 function automatic [31:0] inst_branch_imm;
@@ -204,18 +209,33 @@ endfunction
   always @(*) begin
     rf_rs1 = inst_rn(inst);
     rf_rs2 = inst_rm(inst);
-    rf_ws = inst_rd(inst);
+    if (inst_branch_islink(inst) == inst_type_branchLink && inst_type(inst) == inst_type_branch)
+      rf_ws = r14;
+    else
+      rf_ws = inst_rd(inst);
   end
 
   // "Decode" whether we write the register file
   always @(*) begin
     rf_we = 1'b0;
-
+    data_mem_we = 1'b0;
     case (inst_type(inst))
-        inst_type_branch: rf_we = 1'b0;
+        inst_type_branch: 
+          // rf_we = 1'b0;
+          if (inst_branch_islink(inst) == 1)
+            rf_we = 1'b1;
         inst_type_data_proc:
           if (inst_cond(inst) == cond_al)
             rf_we = 1'b1;
+        inst_type_ldr_str:
+          if (inst_branch_isload(inst) == inst_type_load) begin
+            // rd is source
+            rf[inst_rn(inst)] = data_mem[rf[inst_rd(inst)] + inst_ldrstr_imm(inst)];
+          end
+          else begin // store
+            // rd is destination
+            data_mem[rf[inst_rd(inst)] + inst_ldrstr_imm(inst)] = rf[inst_rn(inst)];
+          end
     endcase
   end
 
@@ -227,83 +247,84 @@ endfunction
 
   // "Execute" the instruction
   reg [32:0] alu_result;
-  reg [31:0] rf_d1_copy;
-  reg [31:0] operand2_copy;
   always @(*) begin
-      alu_result = 33'h0_0000_0000;
-      rf_d1_copy = rf_d1;
-      operand2_copy = operand2;
-      case (inst_opcode(inst))
-        opcode_and: alu_result = rf_d1 & operand2;
-        opcode_eor: alu_result = (rf_d1 & ~operand2) | (~rf_d1 & operand2);
-        opcode_sub: begin
-                      alu_result = rf_d1 + ~operand2 + 1;
-                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
-                                        (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
-                    end
-        opcode_rsb: begin
-                      alu_result = operand2 + ~rf_d1 + 1;
-                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
-                                        (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
-                    end
-        opcode_add: begin
-                      alu_result = rf_d1 + operand2;
-                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
-                                        (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
-                    end
-        opcode_adc: begin
-                      alu_result = rf_d1 + operand2 + cpsr[cpsr_c];
-                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
-                                        (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
-                    end
-        opcode_sbc: begin
-                      alu_result = rf_d1 + ~operand2 + cpsr[cpsr_c];
-                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
-                                        (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
-                    end
-        opcode_rsc: begin
-                      alu_result = operand2 + ~rf_d1 + cpsr[cpsr_c];
-                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
-                                        (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
-                    end
-        opcode_tst: alu_result = rf_d1 & operand2;
-        opcode_teq: alu_result = rf_d1 ^ operand2;
-        opcode_cmp: begin
-                      alu_result = rf_d1 + ~operand2 + 1;
-                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1> 0) ||
-                                        (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
-                    end
-        opcode_cmpn: begin
-                      alu_result = rf_d1 + operand2;
-                      if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
-                                        (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
-                    end
-        opcode_orr: alu_result = rf_d1 | operand2;
-        opcode_mov: alu_result = operand2;
-        opcode_bic: alu_result = rf_d1 & ~operand2;
-        opcode_mvn: alu_result = 32'hFFFF_FFFF ^ operand2;
-      endcase
+      if (inst_branch_islink(inst) == inst_type_branchLink && inst_type(inst) == inst_type_branch) 
+        rf_wd = pc + 4; // loads LR with next instruction
+      else
+      begin
+        alu_result = 33'h0_0000_0000;
+        case (inst_opcode(inst))
+          opcode_and: alu_result = rf_d1 & operand2;
+          opcode_eor: alu_result = (rf_d1 & ~operand2) | (~rf_d1 & operand2);
+          opcode_sub: begin
+                        alu_result = rf_d1 + ~operand2 + 1;
+                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
+                                          (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
+                      end
+          opcode_rsb: begin
+                        alu_result = operand2 + ~rf_d1 + 1;
+                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                          cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
+                      end
+          opcode_add: begin
+                        alu_result = rf_d1 + operand2;
+                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
+                      end
+          opcode_adc: begin
+                        alu_result = rf_d1 + operand2 + cpsr[cpsr_c];
+                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
+                      end
+          opcode_sbc: begin
+                        alu_result = rf_d1 + ~operand2 + cpsr[cpsr_c];
+                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
+                                          (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
+                      end
+          opcode_rsc: begin
+                        alu_result = operand2 + ~rf_d1 + cpsr[cpsr_c];
+                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                          cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
+                      end
+          opcode_tst: alu_result = rf_d1 & operand2;
+          opcode_teq: alu_result = rf_d1 ^ operand2;
+          opcode_cmp: begin
+                        alu_result = rf_d1 + ~operand2 + 1;
+                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1> 0) ||
+                                          (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
+                      end
+          opcode_cmpn: begin
+                        alu_result = rf_d1 + operand2;
+                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
+                      end
+          opcode_orr: alu_result = rf_d1 | operand2;
+          opcode_mov: alu_result = operand2;
+          opcode_bic: alu_result = rf_d1 & ~operand2;
+          opcode_mvn: alu_result = 32'hFFFF_FFFF ^ operand2;
+        endcase
 
-      // Updates condition bits
-      if (inst[20] == 1'b1 && rf_ws != 4'b1111) begin
-        cpsr[cpsr_c] = alu_result[32];
-        cpsr[cpsr_z] = (alu_result == 33'h0_0000_0000 ? 1 : 0);
-        cpsr[cpsr_n] = alu_result[31];
+        // Updates condition bits
+        if (inst[20] == 1'b1 && rf_ws != 4'b1111) begin
+          cpsr[cpsr_c] = alu_result[32];
+          cpsr[cpsr_z] = (alu_result == 33'h0_0000_0000 ? 1 : 0);
+          cpsr[cpsr_n] = alu_result[31];
+        end
+
+        if (inst_opcode(inst) != opcode_tst &&
+            inst_opcode(inst) != opcode_teq &&
+            inst_opcode(inst) != opcode_cmp &&
+            inst_opcode(inst) != opcode_cmpn)
+          rf_wd = alu_result[31:0];
       end
-
-      if (inst_opcode(inst) != opcode_tst &&
-          inst_opcode(inst) != opcode_teq &&
-          inst_opcode(inst) != opcode_cmp &&
-          inst_opcode(inst) != opcode_cmpn)
-        rf_wd = alu_result[31:0];
   end
 
   // "Write back" the instruction
@@ -314,20 +335,16 @@ endfunction
   end
 
   always @(posedge clk) begin
-    data_mem_wd <= 0; //added this in from lab 1 starter from here to
-    data_addr <= 0;
+    data_mem_wd = 0; //added this in from lab 1 starter from here to
+    data_addr = 0;
   //   code_addr <= 0;
-    data_mem_we <= 0; //HERE. made this note just in case anything breaks
+    // data_mem_we = 0; //HERE. made this note just in case anything breaks
     if (!nreset)
         pc <= 32'd0;
     else begin
       // default behavior
       pc <= pc + 4;
-
       if (inst_type(inst) == inst_type_branch) begin
-        if (inst_branch_islink(inst) == inst_type_branchLink) begin
-          rf[r14] <= pc + 4; // loads LR with next instruction
-        end
         case (inst_cond(inst))
           cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
           cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target;
@@ -347,7 +364,7 @@ endfunction
         endcase
           // pc <= branch_target; marks comment
       end
-      else if (inst_type(inst) == inst_type_ldr_str) begin //
+    end
         //  if (inst_branch_isLoad(inst) == inst_type_load) begin
         //   case (inst_cond(inst))
         //     cond_eq: if (cpsr[cpsr_z] == 1'b1) rf[inst_rd] <= data_mem[rf[inst_rn]];??????  rf[inst_rn] = address?
@@ -386,7 +403,7 @@ endfunction
         //     cond_al: pc <= branch_target;
         //   endcase
         //  end
-       end
-      end
-    end
+       // end
+      // end
+  end
 endmodule
