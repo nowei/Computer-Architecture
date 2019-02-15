@@ -6,6 +6,24 @@ module cpu(
   output wire [7:0] debug_port2,
   output wire [7:0] debug_port3
   );
+  localparam data_width = 32;
+  localparam data_width_l2b = $clog2(data_width / 8);
+  localparam data_words = 512;
+  localparam data_words_l2 = $clog2(data_words);
+  localparam data_addr_width = data_words_l2;
+
+  reg [data_width - 1:0]  data_mem[data_words - 1:0];
+  reg [data_width - 1:0]  data_mem_rd;
+  reg [data_width - 1:0]  data_mem_wd;
+  reg [data_addr_width - 1:0] data_addr;
+  reg data_mem_we;
+
+  always @(posedge clk) begin
+    if (data_mem_we)
+        data_mem[data_addr] <= data_mem_wd;
+    data_mem_rd <= data_mem[data_addr];
+  end
+
   localparam code_width = 32;
   localparam code_width_l2b = $clog2(code_width / 8);
   localparam code_words = 8;
@@ -30,14 +48,14 @@ module cpu(
   assign debug_port1 = pc[9:2];
   assign debug_port2 = code_mem_rd[7:0];
   assign debug_port3 = rf_d1[7:0];
-  
+
   reg [31:0] rf[0:14];  // register 15 is the pc
 initial begin
   rf[1] <= 32'd1;     // for testing
 end
   localparam r15 = 4'b1111;
   localparam r14 = 4'b1110; //Link Register
-  
+
   reg [31:0] cpsr;    // program status register
   localparam cpsr_n = 31;
   localparam cpsr_z = 30;
@@ -123,7 +141,7 @@ function automatic inst_branch_islink;
 endfunction
 
 //might want this to distinguish for Load/Store Bit
-// inst[20] = 1 or Load, = 0 for Store  
+// inst[20] = 1 or Load, = 0 for Store
 localparam inst_type_load = 1'b1;
 function automatic inst_branch_isload;
     input [31:0]   inst;
@@ -164,8 +182,7 @@ function automatic [3:0] inst_opcode;
     inst_opcode = inst[24:21];
 endfunction
 
-
-//  "Fetch" from code memory into instruction bits 
+//  "Fetch" from code memory into instruction bits
   reg [31:0] inst;
   always @(*) begin
     inst = code_mem_rd;
@@ -222,37 +239,37 @@ endfunction
         opcode_sub: begin
                       alu_result = rf_d1 + ~operand2 + 1;
                       if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) || 
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
                                         (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
                     end
         opcode_rsb: begin
                       alu_result = operand2 + ~rf_d1 + 1;
                       if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) || 
+                        cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
                                         (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
                     end
         opcode_add: begin
                       alu_result = rf_d1 + operand2;
                       if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) || 
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
                                         (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
                     end
         opcode_adc: begin
                       alu_result = rf_d1 + operand2 + cpsr[cpsr_c];
                       if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) || 
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
                                         (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
                     end
         opcode_sbc: begin
                       alu_result = rf_d1 + ~operand2 + cpsr[cpsr_c];
                       if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) || 
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
                                         (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
                     end
         opcode_rsc: begin
-                      alu_result = operand2 + ~rf_d1 + cpsr[cpsr_c]; 
+                      alu_result = operand2 + ~rf_d1 + cpsr[cpsr_c];
                       if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) || 
+                        cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
                                         (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
                     end
         opcode_tst: alu_result = rf_d1 & operand2;
@@ -260,13 +277,13 @@ endfunction
         opcode_cmp: begin
                       alu_result = rf_d1 + ~operand2 + 1;
                       if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1> 0) || 
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1> 0) ||
                                         (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
                     end
         opcode_cmpn: begin
                       alu_result = rf_d1 + operand2;
                       if (inst[20] == 1'b1 && rf_ws != 4'b1111)
-                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) || 
+                        cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
                                         (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
                     end
         opcode_orr: alu_result = rf_d1 | operand2;
@@ -275,7 +292,7 @@ endfunction
         opcode_mvn: alu_result = 32'hFFFF_FFFF ^ operand2;
       endcase
 
-      // Updates condition bits 
+      // Updates condition bits
       if (inst[20] == 1'b1 && rf_ws != 4'b1111) begin
         cpsr[cpsr_c] = alu_result[32];
         cpsr[cpsr_z] = (alu_result == 33'h0_0000_0000 ? 1 : 0);
@@ -285,7 +302,7 @@ endfunction
       if (inst_opcode(inst) != opcode_tst &&
           inst_opcode(inst) != opcode_teq &&
           inst_opcode(inst) != opcode_cmp &&
-          inst_opcode(inst) != opcode_cmpn) 
+          inst_opcode(inst) != opcode_cmpn)
         rf_wd = alu_result[31:0];
   end
 
@@ -297,6 +314,10 @@ endfunction
   end
 
   always @(posedge clk) begin
+    data_mem_wd <= 0; //added this in from lab 1 starter from here to
+    data_addr <= 0;
+  //   code_addr <= 0;
+    data_mem_we <= 0; //HERE. made this note just in case anything breaks
     if (!nreset)
         pc <= 32'd0;
     else begin
@@ -309,7 +330,7 @@ endfunction
         end
         case (inst_cond(inst))
           cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
-          cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target; 
+          cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target;
           cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
           cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
           cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
@@ -326,11 +347,11 @@ endfunction
         endcase
           // pc <= branch_target; marks comment
       end
-      else if (inst_type(inst) == inst_type_ldr_str) begin
+      else if (inst_type(inst) == inst_type_ldr_str) begin //
         //  if (inst_branch_isLoad(inst) == inst_type_load) begin
         //   case (inst_cond(inst))
-        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) rf[inst_rd] <= ...dataMem[address = rf[inst_rn]]?????? idk where data memory is in this
-        //     cond_ne: if (~cpsr[cpsr_z]) ; 
+        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) rf[inst_rd] <= data_mem[rf[inst_rn]];??????  rf[inst_rn] = address?
+        //     cond_ne: if (~cpsr[cpsr_z]) ;
         //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
         //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
         //     cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
@@ -348,8 +369,8 @@ endfunction
         //  end
         //  else begin //STORE to mem
         //   case (inst_cond(inst))
-        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) ; dataMem[address = rf[inst_rn]] <= rf[inst_rd]  ??????
-        //     cond_ne: if (~cpsr[cpsr_z]) ; 
+        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) ; data_mem[rf[inst_rn]] <= rf[inst_rd]  ??????
+        //     cond_ne: if (~cpsr[cpsr_z]) ;
         //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
         //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
         //     cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
@@ -365,8 +386,7 @@ endfunction
         //     cond_al: pc <= branch_target;
         //   endcase
         //  end
-      // end
+       end
+      end
     end
-  end
-
 endmodule
