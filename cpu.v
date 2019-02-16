@@ -38,7 +38,11 @@ module cpu(
 
   initial begin
     code_mem[0] = 32'b1110_000_0100_0_0010_0010_00000000_0001;  // ADD r2, r2, r1
-    code_mem[1] = 32'b1110_101_0_11111111_11111111_11111101;  // branch -12 which is PC = (PC + 8) - 12 = PC - 4
+    code_mem[1] = 32'b1110_101_0_11111111_11111111_11111101;  // unconditional branch -12 which is PC = (PC + 8) - 12 = PC - 4
+    code_mem[2] = 32'b1110_101_0_11111111_11111111_11111101; //BEQ
+    code_mem[3] = 32'b1110_01_001001_0001_0010_000000011110; //LDR r1 [r2 #30] == unconditional load rd [rn offset]
+    code_mem[4] = 32'b1110_01_001000_0001_0010_000000011110; //STR
+    code_mem[5] = 32'b1110_101_1_11111111_11111111_11111101; //BL
   end
 
   reg [code_width - 1:0]  pc;
@@ -49,7 +53,7 @@ module cpu(
 
   assign debug_port1 = pc[9:2];
   assign debug_port2 = code_mem_rd[7:0];
-  assign debug_port3 = rf_d1[7:0];
+  assign debug_port3 = rf[2];//rf_d1[7:0];
 
   reg [31:0] rf[0:14];  // register 15 is the pc
 initial begin
@@ -215,11 +219,11 @@ endfunction
   always @(*) begin
     rf_rs1 = inst_rn(inst);
     rf_rs2 = inst_rm(inst);
-    if (inst_branch_islink(inst) == inst_type_branchLink && 
+    if (inst_branch_islink(inst) == inst_type_branchLink &&
         inst_type(inst) == inst_type_branch)
       rf_ws = r14;
     else if (inst_type(inst) == inst_type_ldr_str) begin
-      if (inst_ldrstr_isload(inst) == inst_type_load) 
+      if (inst_ldrstr_isload(inst) == inst_type_load)
         rf_ws = rf[inst_rn(inst)];
       else
         data_addr_wd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
@@ -233,7 +237,7 @@ endfunction
     rf_we = 1'b0;
     data_mem_we = 1'b0;
     case (inst_type(inst))
-        inst_type_branch: 
+        inst_type_branch:
           // rf_we = 1'b0;
           if (inst_branch_islink(inst) == 1)
             rf_we = 1'b1;
@@ -258,15 +262,15 @@ endfunction
   // "Execute" the instruction
   reg [32:0] alu_result;
   always @(*) begin
-      if (inst_branch_islink(inst) == inst_type_branchLink && 
-          inst_type(inst) == inst_type_branch) 
+      if (inst_branch_islink(inst) == inst_type_branchLink &&
+          inst_type(inst) == inst_type_branch)
         rf_wd = pc + 4; // loads LR with next instruction
 
       else if (inst_type(inst) == inst_type_ldr_str) begin
         if (inst_ldrstr_isload(inst) == inst_type_load) begin
           // rd is source
           data_addr_rd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
-          // writes to rf[inst_rn(inst)] 
+          // writes to rf[inst_rn(inst)]
         end
         else begin // store
           // rd is destination
@@ -347,7 +351,7 @@ endfunction
       if (inst_opcode(inst) != opcode_tst &&
           inst_opcode(inst) != opcode_teq &&
           inst_opcode(inst) != opcode_cmp &&
-          inst_opcode(inst) != opcode_cmpn) 
+          inst_opcode(inst) != opcode_cmpn)
       begin
         if (inst_type(inst) == inst_type_ldr_str && inst_ldrstr_isload(inst) != inst_type_load)
           data_mem_wd = alu_result[31:0];
