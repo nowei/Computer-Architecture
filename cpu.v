@@ -4,7 +4,11 @@ module cpu(
   output wire led,
   output wire [7:0] debug_port1,
   output wire [7:0] debug_port2,
-  output wire [7:0] debug_port3
+  output wire [7:0] debug_port3,
+  output wire [7:0] debug_port4,
+  output wire [7:0] debug_port5,
+  output wire [7:0] debug_port6,
+  output wire [7:0] debug_port7
   );
   localparam data_width = 32;
   localparam data_width_l2b = $clog2(data_width / 8);
@@ -35,14 +39,50 @@ module cpu(
   wire [code_width - 1:0]  code_mem_rd;
   wire [code_addr_width - 1:0] code_addr;
 
+  localparam r1 = 4'b0001;
+  localparam r2 = 4'b0010;
+  localparam r3 = 4'b0011;
+  localparam r15 = 4'b1111;
+  localparam r14 = 4'b1110; //Link Register
+
+  localparam branch_opcode = 4'b1010;
+  localparam branchLink_opcode = 4'b1011;
+
+  localparam IPUBWLbits_ldr = 6'b001001;
+  localparam IPUBWLbits_str = 6'b001000;
+
+  localparam do_nothing = 32'h00000000;
 
   initial begin
-    code_mem[0] = 32'b1110_000_0100_0_0010_0010_00000000_0001;  // ADD r2, r2, r1
-    code_mem[1] = 32'b1110_101_0_11111111_11111111_11111101;  // unconditional branch -12 which is PC = (PC + 8) - 12 = PC - 4
-    code_mem[2] = 32'b1110_101_0_11111111_11111111_11111101; //BEQ
-    code_mem[3] = 32'b1110_01_001001_0001_0010_000000011110; //LDR r1 [r2 #30] == unconditional load rd [rn offset]
-    code_mem[4] = 32'b1110_01_001000_0001_0010_000000011110; //STR
-    code_mem[5] = 32'b1110_101_1_11111111_11111111_11111101; //BL
+  code_mem[0] = {cond_al, 3'b000, opcode_add, 1'b1, r2, r2, 8'b00000000, r1};
+  //code_mem[0] = 32'b1110_000_0100_0_0010_0010_00000000_0001;  // ADD r2, r2, r1
+  //code_mem[1] = 32'b1110_101_0_11111111_11111111_11111101;  // unconditional branch -12 which is PC = (PC + 8) - 12 = PC - 4
+  //code_mem[1] = {cond_al, branch_opcode, 24'd4}; //unconditional branch
+  code_mem[2] = do_nothing;
+  code_mem[3] = do_nothing;
+  code_mem[4] = do_nothing;
+  code_mem[5] = do_nothing;
+  //code_mem[6] = 32'b1110_101_0_11111111_11111111_11111101; //BEQ
+//  code_mem[9] = {cond_eq, branch_opcode, 24'd2}; //conditional branch BEQ
+  // code_mem[7] = do_nothing;
+  // code_mem[8] = do_nothing;
+  // code_mem[9] = do_nothing;
+  // code_mem[10] = do_nothing;
+  //code_mem[11] = 32'b1110_01_001001_0001_0010_000000011110; //LDR r1 [r2 #30] == unconditional load rd [rn offset]
+  code_mem[14] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r1, r3, 12'd17};
+  // code_mem[12] = do_nothing;
+  // code_mem[13] = do_nothing;
+  // code_mem[14] = do_nothing;
+  //code_mem[12] = 32'b1110_01_001000_0001_0010_000000011110; //STR
+  code_mem[20] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r2, r3, 12'd17};
+  // code_mem[16] = do_nothing;
+  // code_mem[17] = do_nothing;
+  // code_mem[18] = do_nothing;
+  //code_mem[15] = 32'b1110_101_1_11111111_11111111_11111101; //BL
+  //code_mem[26] = {cond_al, branchLink_opcode, 24'd3};
+  // code_mem[20] = do_nothing;
+  // code_mem[21] = do_nothing;
+  // code_mem[22] = do_nothing;
   end
 
   reg [code_width - 1:0]  pc;
@@ -51,16 +91,25 @@ module cpu(
 
   assign led = pc[2]; // make the LED blink on the low order bit of the PC
 
+  // assign debug_port1 = pc[9:2];
+  // assign debug_port2 = {4'b0000,rf_ws};//code_mem_rd[7:0];
+  // assign debug_port3 = rf_wd[7:0]
+
   assign debug_port1 = pc[9:2];
-  assign debug_port2 = code_mem_rd[7:0];
-  assign debug_port3 = rf[2];//rf_d1[7:0];
+  assign debug_port2 = {6'd0,inst[27:26]};//{4'b0000,rf_ws};//code_mem_rd[7:0];
+  assign debug_port3 = {7'd0,inst[20]};//rf[1][7:0];//rf_wd[7:0];//rf_d1[7:0];
+  // assign debug_port4 = data_mem_rd[7:0];
+  // assign debug_port5 = rf_wd[7:0];
+  // assign debug_port6 = {4'b0000,rf_ws};
+  // assign debug_port7 = rf[r14][7:0];
 
   reg [31:0] rf[0:14];  // register 15 is the pc
 initial begin
   rf[1] <= 32'd1;     // for testing
+  rf[2] <= 32'b0;
+  rf[3] <= 32'd3;
+  rf[r14] <= 32'b0;
 end
-  localparam r15 = 4'b1111;
-  localparam r14 = 4'b1110; //Link Register
 
   reg [31:0] cpsr;    // program status register
   localparam cpsr_n = 31;
@@ -167,9 +216,8 @@ endfunction
 localparam inst_type_branch = 2'b10;
 localparam inst_type_data_proc = 2'b00;
 
-// CHANGING THIS TO 2'b00 makes it compile
 localparam inst_type_ldr_str = 2'b01;
-// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
 
 function automatic [1:0] inst_type;
     input [31:0]  inst;
@@ -377,7 +425,11 @@ endfunction
         pc <= 32'd0;
     else begin
       // default behavior
-      pc <= pc + 4;
+      if (pc > 120) begin
+       pc <= 32'd0;
+      end else begin
+        pc <= pc + 4;
+      end
       if (inst_type(inst) == inst_type_branch) begin
         case (inst_cond(inst))
           cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
@@ -399,45 +451,5 @@ endfunction
           // pc <= branch_target; marks comment
       end
     end
-        //  if (inst_ldrstr_isload(inst) == inst_type_load) begin
-        //   case (inst_cond(inst))
-        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) rf[inst_rd] <= data_mem[rf[inst_rn]];??????  rf[inst_rn] = address?
-        //     cond_ne: if (~cpsr[cpsr_z]) ;
-        //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
-        //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
-        //     cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
-        //     cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
-        //     cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
-        //     cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
-        //     cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_al: pc <= branch_target;
-        //   endcase
-        //  end
-        //  else begin //STORE to mem
-        //   case (inst_cond(inst))
-        //     cond_eq: if (cpsr[cpsr_z] == 1'b1) ; data_mem[rf[inst_rn]] <= rf[inst_rd]  ??????
-        //     cond_ne: if (~cpsr[cpsr_z]) ;
-        //     cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
-        //     cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
-        //     cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
-        //     cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
-        //     cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
-        //     cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
-        //     cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-        //     cond_al: pc <= branch_target;
-        //   endcase
-        //  end
-       // end
-      // end
   end
 endmodule
