@@ -4,30 +4,34 @@ module cpu(
   output wire led,
   output wire [7:0] debug_port1,
   output wire [7:0] debug_port2,
-  output wire [7:0] debug_port3,
-  output wire [7:0] debug_port4,
-  output wire [7:0] debug_port5,
-  output wire [7:0] debug_port6,
-  output wire [7:0] debug_port7
+  output wire [7:0] debug_port3
   );
   localparam data_width = 32;
   localparam data_width_l2b = $clog2(data_width / 8);
-  localparam data_words = 32;
+  localparam data_words = 8;//32;
   localparam data_words_l2 = $clog2(data_words);
   localparam data_addr_width = data_words_l2;
+
+  assign debug_port1 = pc[9:2];
+  assign debug_port2 = branch_target[7:0];
+  assign debug_port3 = rf[14][7:0];
+  //STORE WORKS data_mem[data_addr][7:0]
+  //data_mem_wd[7:0] & rf_wd[7:0] keeps disconnecting the USB
+  //rf_ws[7:0] correct
 
   reg [data_width - 1:0]  data_mem[data_words - 1:0];
   reg [data_width - 1:0]  data_mem_rd;
   reg [data_width - 1:0]  data_mem_wd;
-  reg [data_addr_width - 1:0] data_addr_rd;
-  reg [data_addr_width - 1:0] data_addr_wd;
+  // reg [data_addr_width - 1:0] data_addr_rd; //REDUNDANT both used for same thing
+  // reg [data_addr_width - 1:0] data_addr_wd; //but keep just in case for the future
+  reg [data_addr_width - 1:0] data_addr; //use instead of the two above
   reg data_mem_we;
 
   // Synchronous memories
-  always @(*) begin
+  always @(posedge clk) begin
     if (data_mem_we)
-        data_mem[data_addr_wd] <= data_mem_wd;
-    data_mem_rd <= data_mem[data_addr_rd];
+        data_mem[data_addr] <= data_mem_wd;
+    data_mem_rd <= data_mem[data_addr];
   end
 
   localparam code_width = 32;
@@ -47,6 +51,7 @@ module cpu(
 
   localparam branch_opcode = 4'b1010;
   localparam branchLink_opcode = 4'b1011;
+  localparam branchExchange_opcode = 24'b0001_0010_1111_1111_1111_0001;
 
   localparam IPUBWLbits_ldr = 6'b001001;
   localparam IPUBWLbits_str = 6'b001000;
@@ -54,35 +59,16 @@ module cpu(
   localparam do_nothing = 32'h00000000;
 
   initial begin
-  // code_mem[0] = {cond_al, 3'b000, opcode_add, 1'b1, r2, r2, 8'b00000000, r1};
-  //code_mem[0] = 32'b1110_000_0100_0_0010_0010_00000000_0001;  // ADD r2, r2, r1
-  //code_mem[1] = 32'b1110_101_0_11111111_11111111_11111101;  // unconditional branch -12 which is PC = (PC + 8) - 12 = PC - 4
-  //code_mem[1] = {cond_al, branch_opcode, 24'd4}; //unconditional branch
-  code_mem[2] = do_nothing;
-  code_mem[3] = do_nothing;
-  code_mem[4] = do_nothing;
-  code_mem[5] = do_nothing;
-  //code_mem[6] = 32'b1110_101_0_11111111_11111111_11111101; //BEQ
-//  code_mem[9] = {cond_eq, branch_opcode, 24'd2}; //conditional branch BEQ
-  // code_mem[7] = do_nothing;
-  // code_mem[8] = do_nothing;
-  // code_mem[9] = do_nothing;
-  // code_mem[10] = do_nothing;
-  //code_mem[11] = 32'b1110_01_001001_0001_0010_000000011110; //LDR r1 [r2 #30] == unconditional load rd [rn offset]
-  code_mem[14] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r1, r3, 12'd17};
-  // code_mem[12] = do_nothing;
-  // code_mem[13] = do_nothing;
-  // code_mem[14] = do_nothing;
-  //code_mem[12] = 32'b1110_01_001000_0001_0010_000000011110; //STR
-  code_mem[20] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r2, r3, 12'd17};
-  // code_mem[16] = do_nothing;
-  // code_mem[17] = do_nothing;
-  // code_mem[18] = do_nothing;
-  //code_mem[15] = 32'b1110_101_1_11111111_11111111_11111101; //BL
-  //code_mem[26] = {cond_al, branchLink_opcode, 24'd3};
-  // code_mem[20] = do_nothing;
-  // code_mem[21] = do_nothing;
-  // code_mem[22] = do_nothing;
+  // code_mem[0] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1
+  // //code_mem[1] = 32'b1110_101_0_11111111_11111111_11111101;  // unconditional branch -12 which is PC = (PC + 8) - 12 = PC - 4
+   code_mem[1] = {cond_al, branch_opcode, 24'd0}; //unconditional branch
+   code_mem[3] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
+   code_mem[4] = {cond_ne, branch_opcode, 24'd0};//conditional branch BNE
+   code_mem[7] = {cond_al, branchLink_opcode, 24'd0}; //BL
+   code_mem[10] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r1, 12'd0}; //STR R2 at R2+0
+   code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r1, 12'd0};//LDR R3 with [R2+0]
+   code_mem[14] = {cond_al, branchExchange_opcode, r14};
+
   end
 
   reg [code_width - 1:0]  pc;
@@ -91,24 +77,13 @@ module cpu(
 
   assign led = pc[2]; // make the LED blink on the low order bit of the PC
 
-  // assign debug_port1 = pc[9:2];
-  // assign debug_port2 = {4'b0000,rf_ws};//code_mem_rd[7:0];
-  // assign debug_port3 = rf_wd[7:0]
-
-  assign debug_port1 = pc[9:2];
-  assign debug_port2 = data_mem[20][7:0];//{4'b0000,rf_ws};//code_mem_rd[7:0];
-  assign debug_port3 = rf_d1[7:0];//rf[1][7:0];//rf_wd[7:0];//rf_d1[7:0];
-  // assign debug_port4 = data_mem_rd[7:0];
-  // assign debug_port5 = rf_wd[7:0];
-  // assign debug_port6 = {4'b0000,rf_ws};
-  // assign debug_port7 = rf[r14][7:0];
 
   reg [31:0] rf[0:14];  // register 15 is the pc
 initial begin
   rf[1] <= 32'd1;     // for testing
-  rf[2] <= 32'b0;
-  rf[3] <= 32'd3;
-  rf[r14] <= 32'b0;
+  // rf[2] <= 32'b0;
+  // rf[3] <= 32'd3;
+  // rf[r14] <= 32'b0;
 end
 
   reg [31:0] cpsr;    // program status register
@@ -215,9 +190,7 @@ endfunction
 
 localparam inst_type_branch = 2'b10;
 localparam inst_type_data_proc = 2'b00;
-
 localparam inst_type_ldr_str = 2'b01;
-
 
 function automatic [1:0] inst_type;
     input [31:0]  inst;
@@ -272,9 +245,9 @@ endfunction
       rf_ws = r14;
     else if (inst_type(inst) == inst_type_ldr_str) begin
       if (inst_ldrstr_isload(inst) == inst_type_load)
-        rf_ws = rf_rs1;
-      else
-        data_addr_wd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
+        rf_ws = rf_rs1; //maybe this broke it? but highly doubt it
+      // else
+      //   data_addr_wd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst); //dont need it to be else
     end
     else
       rf_ws = inst_rd(inst);
@@ -285,27 +258,35 @@ endfunction
     rf_we = 1'b0;
     data_mem_we = 1'b0;
     case (inst_type(inst))
-        inst_type_branch:
+        inst_type_branch: begin
           // rf_we = 1'b0;
           if (inst_branch_islink(inst) == 1)
             rf_we = 1'b1;
+        end
 
         inst_type_data_proc:
           if (inst_cond(inst) == cond_al)
             rf_we = 1'b1;
-        inst_type_ldr_str:
+
+        inst_type_ldr_str: begin
           if (inst_ldrstr_isload(inst) == inst_type_load)
             rf_we = 1'b1;
           else
             data_mem_we = 1'b1;
-
+          end
+        // default:
+        //   rf_we = 1'b1;
     endcase
   end
 
   // "Decode" the branch target
   reg [31:0] branch_target;
   always @(*) begin
-    branch_target = pc + 8 + inst_branch_imm(inst);
+    if(inst[27:4] == branchExchange_opcode) begin
+      branch_target = rf[inst[3:0]];
+    end
+    else
+      branch_target = pc + 8 + inst_branch_imm(inst);
   end
 
   // "Execute" the instruction
@@ -313,17 +294,19 @@ endfunction
   always @(*) begin
       if (inst_branch_islink(inst) == inst_type_branchLink &&
           inst_type(inst) == inst_type_branch)
-        rf_wd = pc + 4; // loads LR with next instruction
+        alu_result = {1'b0, pc + 4}; // loads LR with next instruction
 
       else if (inst_type(inst) == inst_type_ldr_str) begin
+        data_addr = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
         if (inst_ldrstr_isload(inst) == inst_type_load) begin
           // rd is source
-          data_addr_rd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
+          //rf_wd = data_mem[data_addr];
+          alu_result = {1'b0,data_mem[data_addr]};
           // writes to rf[inst_rn(inst)]
         end
         else begin // store
           // rd is destination
-          alu_result = rf[inst_rn(inst)];
+          data_mem_wd = rf[inst_rn(inst)]; //this maybe broke it?
           // writes to data_mem[rf[inst_rd(inst)] + inst_ldrstr_imm(inst)]
         end
       end
@@ -400,13 +383,14 @@ endfunction
       if (inst_opcode(inst) != opcode_tst &&
           inst_opcode(inst) != opcode_teq &&
           inst_opcode(inst) != opcode_cmp &&
-          inst_opcode(inst) != opcode_cmpn)
+          inst_opcode(inst) != opcode_cmpn ||
+          inst_branch_islink(inst) == 1'b1)
       begin
-        if (inst_type(inst) == inst_type_ldr_str && inst_ldrstr_isload(inst) != inst_type_load)
-          data_mem_wd = alu_result[31:0];
-        else if (inst_type(inst) == inst_type_ldr_str && inst_ldrstr_isload(inst) == inst_type_load)
-          rf_wd = data_mem_rd;
-        else 
+        // if (inst_type(inst) == inst_type_ldr_str && inst_ldrstr_isload(inst) != inst_type_load)
+        //   data_mem_wd = alu_result[31:0];
+        // else if (inst_type(inst) == inst_type_ldr_str && inst_ldrstr_isload(inst) == inst_type_load)
+        //   rf_wd = data_mem_rd;
+        // else
           rf_wd = alu_result[31:0];
       end
   end
@@ -428,12 +412,12 @@ endfunction
         pc <= 32'd0;
     else begin
       // default behavior
-      if (pc > 120) begin
+      if (pc > 65) begin
        pc <= 32'd0;
       end else begin
         pc <= pc + 4;
       end
-      if (inst_type(inst) == inst_type_branch) begin
+      if (inst_type(inst) == inst_type_branch) begin //inst[27:4] == branchExchange_opcode) begin
         case (inst_cond(inst))
           cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
           cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target;
