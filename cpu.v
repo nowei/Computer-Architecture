@@ -54,7 +54,7 @@ module cpu(
   localparam do_nothing = 32'h00000000;
 
   initial begin
-  code_mem[0] = {cond_al, 3'b000, opcode_add, 1'b1, r2, r2, 8'b00000000, r1};
+  // code_mem[0] = {cond_al, 3'b000, opcode_add, 1'b1, r2, r2, 8'b00000000, r1};
   //code_mem[0] = 32'b1110_000_0100_0_0010_0010_00000000_0001;  // ADD r2, r2, r1
   //code_mem[1] = 32'b1110_101_0_11111111_11111111_11111101;  // unconditional branch -12 which is PC = (PC + 8) - 12 = PC - 4
   //code_mem[1] = {cond_al, branch_opcode, 24'd4}; //unconditional branch
@@ -96,8 +96,8 @@ module cpu(
   // assign debug_port3 = rf_wd[7:0]
 
   assign debug_port1 = pc[9:2];
-  assign debug_port2 = {6'd0,inst[27:26]};//{4'b0000,rf_ws};//code_mem_rd[7:0];
-  assign debug_port3 = {7'd0,inst[20]};//rf[1][7:0];//rf_wd[7:0];//rf_d1[7:0];
+  assign debug_port2 = data_mem[20][7:0];//{4'b0000,rf_ws};//code_mem_rd[7:0];
+  assign debug_port3 = rf_d1[7:0];//rf[1][7:0];//rf_wd[7:0];//rf_d1[7:0];
   // assign debug_port4 = data_mem_rd[7:0];
   // assign debug_port5 = rf_wd[7:0];
   // assign debug_port6 = {4'b0000,rf_ws};
@@ -272,7 +272,7 @@ endfunction
       rf_ws = r14;
     else if (inst_type(inst) == inst_type_ldr_str) begin
       if (inst_ldrstr_isload(inst) == inst_type_load)
-        rf_ws = inst_rn(inst);
+        rf_ws = rf_rs1;
       else
         data_addr_wd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
     end
