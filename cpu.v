@@ -417,7 +417,7 @@ endfunction
       end else begin
         pc <= pc + 4;
       end
-      if (inst_type(inst) == inst_type_branch) begin //inst[27:4] == branchExchange_opcode) begin
+      if (inst_type(inst) == inst_type_branch || inst[27:4] == branchExchange_opcode) begin
         case (inst_cond(inst))
           cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
           cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target;
