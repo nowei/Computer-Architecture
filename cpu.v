@@ -272,7 +272,7 @@ endfunction
       rf_ws = r14;
     else if (inst_type(inst) == inst_type_ldr_str) begin
       if (inst_ldrstr_isload(inst) == inst_type_load)
-        rf_ws = rf[inst_rn(inst)];
+        rf_ws = inst_rn(inst);
       else
         data_addr_wd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
     end
@@ -298,6 +298,7 @@ endfunction
             rf_we = 1'b1;
           else
             data_mem_we = 1'b1;
+
     endcase
   end
 
@@ -403,8 +404,10 @@ endfunction
       begin
         if (inst_type(inst) == inst_type_ldr_str && inst_ldrstr_isload(inst) != inst_type_load)
           data_mem_wd = alu_result[31:0];
-        else
+        else if (inst_type(inst) == inst_type_ldr_str && inst_ldrstr_isload(inst) == inst_type_load)
           rf_wd = data_mem_rd;
+        else 
+          rf_wd = alu_result[31:0];
       end
   end
 
