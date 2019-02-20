@@ -24,7 +24,7 @@ module cpu(
   reg data_mem_we;
 
   // Synchronous memories
-  always @(posedge clk) begin
+  always @(*) begin
     if (data_mem_we)
         data_mem[data_addr_wd] <= data_mem_wd;
     data_mem_rd <= data_mem[data_addr_rd];
