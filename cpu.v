@@ -27,13 +27,6 @@ module cpu(
   reg [data_addr_width - 1:0] data_addr; //use instead of the two above
   reg data_mem_we;
 
-  // Synchronous memories
-  always @(posedge clk) begin
-    if (data_mem_we)
-        data_mem[data_addr] <= data_mem_wd;
-    data_mem_rd <= data_mem[data_addr];
-  end
-
   localparam code_width = 32;
   localparam code_width_l2b = $clog2(code_width / 8);
   localparam code_words = 16;
@@ -218,11 +211,23 @@ function automatic [3:0] inst_opcode;
     inst_opcode = inst[24:21];
 endfunction
 
+
+
+///////////////////////////////////////
+// FETCH
+
+
 //  "Fetch" from code memory into instruction bits
   reg [31:0] inst;
   always @(*) begin
     inst = code_mem_rd;
   end
+
+
+
+
+///////////////////////////////////////
+// DECODE
 
 // "Decode" the second operand
   reg [31:0] operand2;
@@ -288,6 +293,11 @@ endfunction
     else
       branch_target = pc + 8 + inst_branch_imm(inst);
   end
+
+
+
+///////////////////////////////////////
+// EXECUTE
 
   // "Execute" the instruction
   reg [32:0] alu_result;
@@ -394,6 +404,27 @@ endfunction
           rf_wd = alu_result[31:0];
       end
   end
+
+
+
+
+
+
+///////////////////////////////////////
+// Memory
+
+  // Synchronous memories
+  always @(posedge clk) begin
+    if (data_mem_we)
+        data_mem[data_addr] <= data_mem_wd;
+    data_mem_rd <= data_mem[data_addr];
+  end
+
+
+
+
+///////////////////////////////////////
+// Write back
 
   // "Write back" the instruction
   always @(posedge clk) begin
