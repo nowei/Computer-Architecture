@@ -1,10 +1,11 @@
+
 module usb_fs_pe #(
   parameter [4:0] NUM_OUT_EPS = 1,
   parameter [4:0] NUM_IN_EPS = 1
 ) (
+  input clk_48mhz,
   input clk,
   input [6:0] dev_addr,
-
 
   ////////////////////////////////////////////////////////////////////////////////
   ////////////////////////////////////////////////////////////////////////////////
@@ -13,13 +14,13 @@ module usb_fs_pe #(
   ////////////////////////////////////////////////////////////////////////////////
 
   ////////////////////
-  // global endpoint interface
+  // global endpoint interface 
   ////////////////////
   input reset,
 
 
   ////////////////////
-  // out endpoint interfaces
+  // out endpoint interfaces 
   ////////////////////
   input [NUM_OUT_EPS-1:0] out_ep_req,
   output [NUM_OUT_EPS-1:0] out_ep_grant,
@@ -32,7 +33,7 @@ module usb_fs_pe #(
 
 
   ////////////////////
-  // in endpoint interfaces
+  // in endpoint interfaces 
   ////////////////////
   input [NUM_IN_EPS-1:0] in_ep_req,
   output [NUM_IN_EPS-1:0] in_ep_grant,
@@ -43,7 +44,7 @@ module usb_fs_pe #(
   input [NUM_IN_EPS-1:0] in_ep_stall,
   output [NUM_IN_EPS-1:0] in_ep_acked,
 
-
+  
   ////////////////////
   // sof interface
   ////////////////////
@@ -85,7 +86,7 @@ module usb_fs_pe #(
   wire [3:0] in_tx_pid;
   wire out_tx_pkt_start;
   wire [3:0] out_tx_pid;
-
+  
   // tx interface
   wire tx_pkt_start;
   wire tx_pkt_end;
@@ -102,19 +103,19 @@ module usb_fs_pe #(
   usb_fs_in_arb #(
     .NUM_IN_EPS(NUM_IN_EPS)
   ) usb_fs_in_arb_inst (
-    // endpoint interface
+    // endpoint interface 
     .in_ep_req(in_ep_req),
     .in_ep_grant(in_ep_grant),
     .in_ep_data(in_ep_data),
 
-    // protocol engine interface
+    // protocol engine interface 
     .arb_in_ep_data(arb_in_ep_data)
   );
 
   usb_fs_out_arb #(
     .NUM_OUT_EPS(NUM_OUT_EPS)
   ) usb_fs_out_arb_inst (
-    // endpoint interface
+    // endpoint interface 
     .out_ep_req(out_ep_req),
     .out_ep_grant(out_ep_grant)
   );
@@ -127,7 +128,7 @@ module usb_fs_pe #(
     .reset_ep({NUM_IN_EPS{1'b0}}),
     .dev_addr(dev_addr),
 
-    // endpoint interface
+    // endpoint interface 
     .in_ep_data_free(in_ep_data_free),
     .in_ep_data_put(in_ep_data_put),
     .in_ep_data(arb_in_ep_data),
@@ -135,7 +136,7 @@ module usb_fs_pe #(
     .in_ep_stall(in_ep_stall),
     .in_ep_acked(in_ep_acked),
 
-    // rx path
+    // rx path 
     .rx_pkt_start(rx_pkt_start),
     .rx_pkt_end(rx_pkt_end),
     .rx_pkt_valid(rx_pkt_valid),
@@ -144,7 +145,7 @@ module usb_fs_pe #(
     .rx_endp(rx_endp),
     .rx_frame_num(rx_frame_num),
 
-    // tx path
+    // tx path 
     .tx_pkt_start(in_tx_pkt_start),
     .tx_pkt_end(tx_pkt_end),
     .tx_pid(in_tx_pid),
@@ -161,7 +162,7 @@ module usb_fs_pe #(
     .reset_ep({NUM_OUT_EPS{1'b0}}),
     .dev_addr(dev_addr),
 
-    // endpoint interface
+    // endpoint interface 
     .out_ep_data_avail(out_ep_data_avail),
     .out_ep_data_get(out_ep_data_get),
     .out_ep_data(out_ep_data),
@@ -169,7 +170,7 @@ module usb_fs_pe #(
     .out_ep_stall(out_ep_stall),
     .out_ep_acked(out_ep_acked),
 
-    // rx path
+    // rx path 
     .rx_pkt_start(rx_pkt_start),
     .rx_pkt_end(rx_pkt_end),
     .rx_pkt_valid(rx_pkt_valid),
@@ -180,14 +181,15 @@ module usb_fs_pe #(
     .rx_data_put(rx_data_put),
     .rx_data(rx_data),
 
-    // tx path
+    // tx path 
     .tx_pkt_start(out_tx_pkt_start),
     .tx_pkt_end(tx_pkt_end),
     .tx_pid(out_tx_pid)
   );
 
   usb_fs_rx usb_fs_rx_inst (
-    .clk_48mhz(clk),
+    .clk_48mhz(clk_48mhz),
+    .clk(clk),
     .reset(reset),
     .dp(usb_p_rx),
     .dn(usb_n_rx),
@@ -218,7 +220,8 @@ module usb_fs_pe #(
   );
 
   usb_fs_tx usb_fs_tx_inst (
-    .clk_48mhz(clk),
+    .clk_48mhz(clk_48mhz),
+    .clk(clk),
     .reset(reset),
     .bit_strobe(bit_strobe),
     .oe(usb_tx_en),
