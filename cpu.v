@@ -219,12 +219,14 @@ endfunction
 
 //  "Fetch" from code memory into instruction bits
   reg [31:0] inst;
-  always @(*) begin
-    inst = code_mem_rd;
+  always @(posedge clk) begin
+    if (fd_pipe[32]) begin// checks if valid // MAYBE WE DON'T NEED THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+      fd_pipe[31:0] <= code_mem_rd;
+    end
   end
 
 
-
+  reg [32:0] fd_pipe; 
 
 ///////////////////////////////////////
 // DECODE
@@ -232,83 +234,98 @@ endfunction
 // "Decode" the second operand
   reg [31:0] operand2;
   // compute second operand
-  always @(*) begin
+  always @(posedge clk) begin
     // For now, we only support R type unshifted instructions.
     // shifts and such are NOT implemented.
-    if (operand2_type(inst) == operand2_is_reg)
-      operand2 = rf_d2;
-    else
-      operand2 = inst_data_proc_imm(inst);
-  end
-
-  // "Decode" what gets read and written
-  always @(*) begin
-    rf_rs1 = inst_rn(inst);
-    rf_rs2 = inst_rm(inst);
-    if (inst_branch_islink(inst) == inst_type_branchLink &&
-        inst_type(inst) == inst_type_branch)
-      rf_ws = r14;
-    else if (inst_type(inst) == inst_type_ldr_str) begin
-      if (inst_ldrstr_isload(inst) == inst_type_load)
-        rf_ws = rf_rs1; //maybe this broke it? but highly doubt it
-      // else
-      //   data_addr_wd = rf[inst_rd(inst)] + inst_ldrstr_imm(inst); //dont need it to be else
+    if (fd_pipe[32]) begin
+      if (operand2_type(fd_pipe[31:0]) == operand2_is_reg)
+        operand2 = rf_d2;
+      else
+        operand2 = inst_data_proc_imm(fd_pipe[31:0]);
+      end
     end
-    else
-      rf_ws = inst_rd(inst);
+
+  reg [15:0] in_use;
+
+    // "Decode" what gets read and written
+    always @(posedge clk) begin
+      if (fd_pipe[32]) begin
+        rf_rs1 = inst_rn(fd_pipe[31:0]);
+        rf_rs2 = inst_rm(fd_pipe[31:0]);
+        if (inst_branch_islink(fd_pipe[31:0]) == inst_type_branchLink &&
+            inst_type(fd_pipe[31:0]) == inst_type_branch)
+          rf_ws = r14;
+        else if (inst_type(fd_pipe[31:0]) == inst_type_ldr_str) begin
+          if (inst_ldrstr_isload(fd_pipe[31:0]) == inst_type_load)
+            rf_ws = rf_rs1; //maybe this broke it? but highly doubt it
+        end
+        else
+          rf_ws = inst_rd(fd_pipe[31:0]);
+      end
   end
 
   // "Decode" whether we write the register file
-  always @(*) begin
-    rf_we = 1'b0;
-    data_mem_we = 1'b0;
-    case (inst_type(inst))
-        inst_type_branch: begin
-          // rf_we = 1'b0;
-          if (inst_branch_islink(inst) == 1)
-            rf_we = 1'b1;
-        end
-
-        inst_type_data_proc:
-          if (inst_cond(inst) == cond_al)
-            rf_we = 1'b1;
-
-        inst_type_ldr_str: begin
-          if (inst_ldrstr_isload(inst) == inst_type_load)
-            rf_we = 1'b1;
-          else
-            data_mem_we = 1'b1;
+  always @(posedge clk) begin
+    if (fd_pipe[32]) begin
+      rf_we = 1'b0;
+      data_mem_we = 1'b0;
+      case (inst_type(fd_pipe[31:0]))
+          inst_type_branch: begin
+            // rf_we = 1'b0;
+            if (inst_branch_islink(fd_pipe[31:0]) == 1)
+              rf_we = 1'b1;
           end
-        // default:
-        //   rf_we = 1'b1;
-    endcase
+
+          inst_type_data_proc:
+            if (inst_cond(fd_pipe[31:0]) == cond_al)
+              rf_we = 1'b1;
+
+          inst_type_ldr_str: begin
+            if (inst_ldrstr_isload(fd_pipe[31:0]) == inst_type_load)
+              rf_we = 1'b1;
+            else
+              data_mem_we = 1'b1;
+            end
+          // default:
+          //   rf_we = 1'b1;
+      endcase
+    end
   end
 
   // "Decode" the branch target
   reg [31:0] branch_target;
-  always @(*) begin
-    if(inst[27:4] == branchExchange_opcode) begin
-      branch_target = rf[inst[3:0]];
+  always @(posedge clk) begin
+    if (fd_pipe[32]) begin
+      if(fd_pipe[27:4] == branchExchange_opcode) begin
+        branch_target = rf[fd_pipe[3:0]];
+      end
+      else
+        branch_target = pc + 8 + inst_branch_imm(fd_pipe[31:0]);
     end
-    else
-      branch_target = pc + 8 + inst_branch_imm(inst);
   end
 
+  always @(posedge clk) begin
+    if (fd_pipe[32]) begin
+      de_pipe[31:0] = fd_pipe[31:0]; 
+    end
+  end
 
+  reg [32:0] de_pipe; 
 
 ///////////////////////////////////////
 // EXECUTE
 
   // "Execute" the instruction
   reg [32:0] alu_result;
-  always @(*) begin
-      if (inst_branch_islink(inst) == inst_type_branchLink &&
-          inst_type(inst) == inst_type_branch)
+  always @(posedge clk) begin
+    if (de_pipe[32]) begin
+      if (inst_branch_islink(de_pipe[31:0]) == inst_type_branchLink &&
+          inst_type(de_pipe[31:0]) == inst_type_branch)
         alu_result = {1'b0, pc + 4}; // loads LR with next instruction
 
-      else if (inst_type(inst) == inst_type_ldr_str) begin
-        data_addr = rf[inst_rd(inst)] + inst_ldrstr_imm(inst);
-        if (inst_ldrstr_isload(inst) == inst_type_load) begin
+      else if (inst_type(de_pipe[31:0]) == inst_type_ldr_str) begin
+        data_addr = rf[inst_rd(de_pipe[31:0])] + inst_ldrstr_imm(de_pipe[31:0]);
+        if (inst_ldrstr_isload(de_pipe[31:0]) == inst_type_load) begin
           // rd is source
           //rf_wd = data_mem[data_addr];
           alu_result = {1'b0,data_mem[data_addr]};
@@ -316,19 +333,19 @@ endfunction
         end
         else begin // store
           // rd is destination
-          data_mem_wd = rf[inst_rn(inst)]; //this maybe broke it?
+          data_mem_wd = rf[inst_rn(de_pipe[31:0])]; //this maybe broke it?
           // writes to data_mem[rf[inst_rd(inst)] + inst_ldrstr_imm(inst)]
         end
       end
       else
       begin
         alu_result = 33'h0_0000_0000;
-        case (inst_opcode(inst))
+        case (inst_opcode(de_pipe[31:0]))
           opcode_and: alu_result = rf_d1 & operand2;
           opcode_eor: alu_result = (rf_d1 & ~operand2) | (~rf_d1 & operand2);
           opcode_sub: begin
                         alu_result = rf_d1 + ~operand2 + 1;
-                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
                           cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
                                           (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
                       end
@@ -340,19 +357,19 @@ endfunction
                       end
           opcode_add: begin
                         alu_result = rf_d1 + operand2;
-                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
                           cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
                                           (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
                       end
           opcode_adc: begin
                         alu_result = rf_d1 + operand2 + cpsr[cpsr_c];
-                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
                           cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
                                           (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
                       end
           opcode_sbc: begin
                         alu_result = rf_d1 + ~operand2 + cpsr[cpsr_c];
-                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
                           cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
                                           (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
                       end
@@ -366,13 +383,13 @@ endfunction
           opcode_teq: alu_result = rf_d1 ^ operand2;
           opcode_cmp: begin
                         alu_result = rf_d1 + ~operand2 + 1;
-                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
                           cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1> 0) ||
                                           (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
                       end
           opcode_cmpn: begin
                         alu_result = rf_d1 + operand2;
-                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
                           cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
                                           (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
                       end
@@ -383,18 +400,18 @@ endfunction
         endcase
 
         // Updates condition bits
-        if (inst[20] == 1'b1 && rf_ws != 4'b1111) begin
+        if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111) begin
           cpsr[cpsr_c] = alu_result[32];
           cpsr[cpsr_z] = (alu_result == 33'h0_0000_0000 ? 1 : 0);
           cpsr[cpsr_n] = alu_result[31];
         end
       end
 
-      if (inst_opcode(inst) != opcode_tst &&
-          inst_opcode(inst) != opcode_teq &&
-          inst_opcode(inst) != opcode_cmp &&
-          inst_opcode(inst) != opcode_cmpn ||
-          inst_branch_islink(inst) == 1'b1)
+      if (inst_opcode(de_pipe[31:0]) != opcode_tst &&
+          inst_opcode(de_pipe[31:0]) != opcode_teq &&
+          inst_opcode(de_pipe[31:0]) != opcode_cmp &&
+          inst_opcode(de_pipe[31:0]) != opcode_cmpn ||
+          inst_branch_islink(de_pipe[31:0]) == 1'b1)
       begin
         // if (inst_type(inst) == inst_type_ldr_str && inst_ldrstr_isload(inst) != inst_type_load)
         //   data_mem_wd = alu_result[31:0];
@@ -403,35 +420,7 @@ endfunction
         // else
           rf_wd = alu_result[31:0];
       end
-  end
-
-
-
-
-
-
-///////////////////////////////////////
-// Memory
-
-  // Synchronous memories
-  always @(posedge clk) begin
-    if (data_mem_we)
-        data_mem[data_addr] <= data_mem_wd;
-    data_mem_rd <= data_mem[data_addr];
-  end
-
-
-
-
-///////////////////////////////////////
-// Write back
-
-  // "Write back" the instruction
-  always @(posedge clk) begin
-    if (nreset && rf_we)
-      if (rf_ws != r15) // Also writes from data mem to register
-        rf[rf_ws] <= rf_wd;
-
+    end
   end
 
   always @(posedge clk) begin
@@ -439,35 +428,77 @@ endfunction
     // data_addr = 0;
   //   code_addr <= 0;
     // data_mem_we = 0; //HERE. made this note just in case anything breaks
-    if (!nreset)
-        pc <= 32'd0;
-    else begin
-      // default behavior
-      if (pc > 65) begin
-       pc <= 32'd0;
-      end else begin
-        pc <= pc + 4;
-      end
-      if (inst_type(inst) == inst_type_branch || inst[27:4] == branchExchange_opcode) begin
-        case (inst_cond(inst))
-          cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
-          cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target;
-          cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
-          cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
-          cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
-          cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
-          cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
-          cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
-          cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
-          cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
-          cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-          cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-          cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
-          cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
-          cond_al: pc <= branch_target;
-        endcase
-          // pc <= branch_target; marks comment
+    if (de_pipe[32]) begin
+      if (!nreset)
+          pc <= 32'd0;
+      else begin
+        // default behavior
+        if (pc > 65) begin
+         pc <= 32'd0;
+        end else begin
+          pc <= pc + 4;
+        end
+        if (inst_type(de_pipe[31:0]) == inst_type_branch || de_pipe[27:4] == branchExchange_opcode) begin
+          case (inst_cond(de_pipe[31:0]))
+            cond_eq: if (cpsr[cpsr_z] == 1'b1) pc <= branch_target;
+            cond_ne: if (~cpsr[cpsr_z]) pc <= branch_target;
+            cond_cs: if (cpsr[cpsr_c]) pc <= branch_target;
+            cond_cc: if (~cpsr[cpsr_c]) pc <= branch_target;
+            cond_ns: if (cpsr[cpsr_n]) pc <= branch_target;
+            cond_nc: if (~cpsr[cpsr_n]) pc <= branch_target;
+            cond_vs: if (cpsr[cpsr_v]) pc <= branch_target;
+            cond_vc: if (~cpsr[cpsr_v]) pc <= branch_target;
+            cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) pc <= branch_target;
+            cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) pc <= branch_target;
+            cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+            cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+            cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) pc <= branch_target;
+            cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) pc <= branch_target;
+            cond_al: pc <= branch_target;
+          endcase
+            // pc <= branch_target; marks comment
+        end
       end
     end
   end
+
+  always @(posedge clk) begin
+    if (de_pipe[32]) begin
+      em_pipe[31:0] = de_pipe[31:0]; 
+    end
+  end
+
+  reg [32:0] em_pipe; 
+
+///////////////////////////////////////
+// Memory
+
+  always @(posedge clk) begin
+    if (em_pipe[32]) begin
+      if (data_mem_we)
+          data_mem[data_addr] <= data_mem_wd;
+      data_mem_rd <= data_mem[data_addr];
+    end
+  end
+
+  always @(posedge clk) begin
+    if (em_pipe[32]) begin
+      mwb_pipe[31:0] = em_pipe[31:0]; 
+    end
+  end
+
+  reg [32:0] mwb_pipe; 
+
+///////////////////////////////////////
+// Write back
+
+  // "Write back" the instruction
+  always @(posedge clk) begin
+    if (mwb_pipe[32]) begin
+      if (nreset && rf_we)
+        if (rf_ws != r15) // Also writes from data mem to register
+          rf[rf_ws] <= rf_wd;
+    end
+  end
+
 endmodule
