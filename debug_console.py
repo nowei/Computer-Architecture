@@ -8,7 +8,7 @@ errors = 0
 lastcycle = 0
 
 ## Adjust this number to be the number of debug bytes
-debugbytes = 8
+debugbytes = 4
 
 print(ports)
 for port in ports:
@@ -28,8 +28,6 @@ for port in ports:
             try:
                 ch=port.read(1)
                 while int(ch[0]) != 255:
-#                    sys.stdout.write(hex(ch[0]))
-#                    sys.stdout.write("\n")
                     ch=port.read(1)
                 i = 1;
                 while i < debugbytes:
@@ -54,6 +52,8 @@ for port in ports:
                 if thiscycle != lastcycle:
                     sys.stdout.write("\n")
                 lastcycle = thiscycle
+            except KeyboardInterrupt:
+           		break
             except:
                 errors = errors + 1
 

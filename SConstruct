@@ -103,7 +103,7 @@ list_scanner = env.Scanner(function=list_files_scan)
 
 # -- Get a list of all the verilog files in the src folfer, in ASCII, with
 # -- the full path. All these files are used for the simulation
-v_nodes = Glob('*.v') + Glob('usb/*.v') + Glob('cpu/*.v')
+v_nodes = Glob('*.v') + Glob('usb/*.v')
 src_sim = [str(f) for f in v_nodes]
 
 # --------- Get the Testbench file (there should be only 1)
@@ -177,7 +177,7 @@ synth = Builder(
     source_scanner=list_scanner)
 
 pnr = Builder(
-    action='arachne-pnr -r -d {0} -P {1} -p {2} -o $TARGET {3} $SOURCE'.format(
+    action='arachne-pnr -d {0} -P {1} -p {2} -o $TARGET {3} $SOURCE'.format(
         FPGA_SIZE, FPGA_PACK, PCF,
         '' if VERBOSE_ALL or VERBOSE_ARACHNE else '-q'),
     suffix='.asc',

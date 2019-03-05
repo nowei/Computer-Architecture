@@ -2,7 +2,7 @@ module usb_fs_in_arb #(
   parameter NUM_IN_EPS = 1
 ) (
   ////////////////////
-  // endpoint interface 
+  // endpoint interface
   ////////////////////
   input [NUM_IN_EPS-1:0] in_ep_req,
   output reg [NUM_IN_EPS-1:0] in_ep_grant,
@@ -10,13 +10,13 @@ module usb_fs_in_arb #(
 
 
   ////////////////////
-  // protocol engine interface 
+  // protocol engine interface
   ////////////////////
   output reg [7:0] arb_in_ep_data
 );
   integer i;
   reg grant;
- 
+
   always @* begin
     grant = 0;
 
@@ -31,5 +31,9 @@ module usb_fs_in_arb #(
         grant = 1;
       end
     end
+
+    // if (!grant) begin
+    //    arb_in_ep_data <= 0;
+    // end
   end
 endmodule

@@ -3,14 +3,14 @@ module usb_fs_in_pe #(
   parameter NUM_IN_EPS = 11,
   parameter MAX_IN_PACKET_SIZE = 32
 ) (
-  input clk, 
-  input reset, 
-  input [NUM_IN_EPS-1:0] reset_ep, 
+  input clk,
+  input reset,
+  input [NUM_IN_EPS-1:0] reset_ep,
   input [6:0] dev_addr,
 
 
   ////////////////////
-  // endpoint interface 
+  // endpoint interface
   ////////////////////
   output reg [NUM_IN_EPS-1:0] in_ep_data_free = 0,
   input [NUM_IN_EPS-1:0] in_ep_data_put,
@@ -21,7 +21,7 @@ module usb_fs_in_pe #(
 
 
   ////////////////////
-  // rx path 
+  // rx path
   ////////////////////
 
   // Strobed on reception of packet.
@@ -37,16 +37,16 @@ module usb_fs_in_pe #(
 
 
   ////////////////////
-  // tx path 
+  // tx path
   ////////////////////
 
   // Strobe to send new packet.
-  output reg tx_pkt_start,
+  output reg tx_pkt_start = 0,
   input tx_pkt_end,
 
 
   // Packet type to send
-  output reg [3:0] tx_pid,
+  output reg [3:0] tx_pid = 0,
 
   // Data payload to send if any
   output tx_data_avail,
@@ -78,9 +78,9 @@ module usb_fs_in_pe #(
   ////////////////////////////////////////////////////////////////////////////////
   localparam IDLE = 0;
   localparam RCVD_IN = 1;
-  localparam SEND_DATA = 2; 
-  localparam WAIT_ACK = 3; 
-  
+  localparam SEND_DATA = 2;
+  localparam WAIT_ACK = 3;
+
   reg [1:0] in_xfr_state = IDLE;
   reg [1:0] in_xfr_state_next;
 
@@ -95,22 +95,22 @@ module usb_fs_in_pe #(
   // endpoint data buffer
   reg [7:0] in_data_buffer [(MAX_IN_PACKET_SIZE * NUM_IN_EPS) - 1:0];
   reg [5:0] ep_put_addr [NUM_IN_EPS - 1:0];
-  reg [5:0] ep_get_addr [NUM_IN_EPS - 1:0];  
+  reg [5:0] ep_get_addr [NUM_IN_EPS - 1:0];
 
   integer i = 0;
   initial begin
     for (i = 0; i < NUM_IN_EPS; i = i + 1) begin
-      ep_put_addr[i] <= 0;
-      ep_get_addr[i] <= 0;
-      ep_state[i] <= 0;
+      ep_put_addr[i] = 0;
+      ep_get_addr[i] = 0;
+      ep_state[i] = 0;
     end
   end
 
-  reg [3:0] in_ep_num;
+  reg [3:0] in_ep_num = 0;
 
   wire [8:0] buffer_put_addr = {in_ep_num[3:0], ep_put_addr[in_ep_num][4:0]};
   wire [8:0] buffer_get_addr = {current_endp[3:0], ep_get_addr[current_endp][4:0]};
-  
+
   // endpoint data packet buffer has a data packet ready to send
   reg [NUM_IN_EPS - 1:0] endp_ready_to_send = 0;
 
@@ -118,7 +118,7 @@ module usb_fs_in_pe #(
   reg [NUM_IN_EPS - 1:0] endp_free = 0;
 
 
-  wire token_received = 
+  wire token_received =
     rx_pkt_end &&
     rx_pkt_valid &&
     rx_pid[1:0] == 2'b01 &&
@@ -138,18 +138,18 @@ module usb_fs_in_pe #(
     rx_pkt_valid &&
     rx_pid == 4'b0010;
 
-  wire more_data_to_send = 
-    ep_get_addr[current_endp][5:0] < ep_put_addr[current_endp][5:0]; 
+  wire more_data_to_send =
+    ep_get_addr[current_endp][5:0] < ep_put_addr[current_endp][5:0];
 
   wire [5:0] current_ep_get_addr = ep_get_addr[current_endp][5:0];
   wire [5:0] current_ep_put_addr = ep_put_addr[current_endp][5:0];
 
 
 
-  
+
   wire tx_data_avail_i =
     in_xfr_state == SEND_DATA &&
-    more_data_to_send; 
+    more_data_to_send;
 
   assign tx_data_avail = tx_data_avail_i;
 
@@ -180,7 +180,7 @@ module usb_fs_in_pe #(
             PUTTING_PKT : begin
               if (
                 (
-                  in_ep_data_done[ep_num] 
+                  in_ep_data_done[ep_num]
                 ) || (
                   ep_put_addr[ep_num][5]
                 )
@@ -196,7 +196,7 @@ module usb_fs_in_pe #(
               if (in_xfr_end && current_endp == ep_num) begin
                 ep_state_next[ep_num] <= READY_FOR_PKT;
                 in_ep_acked[ep_num] <= 1;
-                
+
               end else begin
                 ep_state_next[ep_num] <= GETTING_PKT;
               end
@@ -239,7 +239,7 @@ module usb_fs_in_pe #(
               end
             end
 
-            GETTING_PKT : begin     
+            GETTING_PKT : begin
             end
 
             STALL : begin
@@ -256,7 +256,7 @@ module usb_fs_in_pe #(
 
     for (ep_num_decoder = 0; ep_num_decoder < NUM_IN_EPS; ep_num_decoder = ep_num_decoder + 1) begin
       if (in_ep_data_put[ep_num_decoder]) begin
-        in_ep_num <= ep_num_decoder; 
+        in_ep_num <= ep_num_decoder;
       end
     end
   end
@@ -295,7 +295,7 @@ module usb_fs_in_pe #(
 
         end else begin
           in_xfr_state_next <= IDLE;
-        end 
+        end
       end
 
 
@@ -348,8 +348,8 @@ module usb_fs_in_pe #(
     endcase
   end
 
-  always @(posedge clk)
-      tx_data <= in_data_buffer[buffer_get_addr];
+ always @(posedge clk)
+     tx_data <= in_data_buffer[buffer_get_addr];
 
   integer j;
   always @(posedge clk) begin
@@ -358,6 +358,8 @@ module usb_fs_in_pe #(
 
     end else begin
       in_xfr_state <= in_xfr_state_next;
+
+      // tx_data <= in_data_buffer[buffer_get_addr];
 
       if (setup_token_received) begin
         data_toggle[rx_endp] <= 1;
