@@ -139,8 +139,7 @@ localparam operand2_is_imm  = 1'b1;
 function automatic operand2_type;
     input [31:0]  inst;
     operand2_type = inst[25];
-endfunction
-
+endfunction  
 
 localparam cond_eq = 4'b0000;
 localparam cond_ne = 4'b0001;
@@ -211,6 +210,30 @@ function automatic [3:0] inst_opcode;
     inst_opcode = inst[24:21];
 endfunction
 
+// IDEA for control unit
+// localparam Reg2Loc, uncondB, Btaken, memRead, memToReg, memWrite, ALUSrc, 
+//           RegWrite, ALU_Imm12_control, flag_enable, RegRdSel, BL_signal, BSel;
+// localparam [2:0] ALUOp;
+// function automatic ctrl_unit;
+//   input [3:0] inst_opcode;
+//   //begin?
+//   if(inst_opcode == opcode_add) begin
+//     Reg2Loc  = 1'b1;
+//     ALUSrc   = 1'b0;   
+//     memtoReg = 1'b0; 
+//     RegWrite = 1'b0; // changed this
+//     memWrite = 1'b0;
+//     memRead  = 1'b0;   
+//     Btaken  = 1'b0; 
+//     uncondB = 1'bx;
+//     ALUOp    = 3'b010;
+//     ALU_Imm12_control = 1'b0;
+//     flag_enable = 1'b0;
+//     RegRdSel = 1'b0;
+//     BL_signal = 1'b0;
+//     BSel = 1'b0;	
+//   end 
+// endfunction
 
 
 ///////////////////////////////////////
@@ -222,6 +245,7 @@ endfunction
   always @(posedge clk) begin
     if (~fd_pipe[32]) begin// checks if valid // MAYBE WE DON'T NEED THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
       fd_pipe[31:0] <= code_mem_rd;
+      //Im pretty sure we need to pass in PC to this pipe reg
     end
   end
 
@@ -306,7 +330,8 @@ endfunction
 
   always @(posedge clk) begin
     if (~fd_pipe[32]) begin
-      de_pipe[31:0] = fd_pipe[31:0]; 
+      de_pipe[31:0] = fd_pipe[31:0]; //<--change this to what we decoded from inst in fd_pip
+      //de_pipe[whatever size needed] = {branch_target, data_mem_we, rf_we, rf_rs1(rn), rf_rs2(rm), rf_ws, operand2(?), flush(?), stall(?};
     end
   end
 
@@ -535,7 +560,8 @@ endfunction
   end
 
   always @(posedge clk) begin
-    em_pipe <= de_pipe;
+    em_pipe <= de_pipe; 
+    //em_pipe[probs new size] = {cpsr, alu_result, rf_wd, flush, stall};
   end
 
   reg [32:0] em_pipe; 
@@ -553,6 +579,7 @@ endfunction
 
   always @(posedge clk) begin
     mwb_pipe <= em_pipe; 
+    //
   end
 
   reg [32:0] mwb_pipe; 
