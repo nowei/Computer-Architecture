@@ -220,7 +220,7 @@ endfunction
 //  "Fetch" from code memory into instruction bits
   reg [31:0] inst;
   always @(posedge clk) begin
-    if (fd_pipe[32]) begin// checks if valid // MAYBE WE DON'T NEED THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
+    if (~fd_pipe[32]) begin// checks if valid // MAYBE WE DON'T NEED THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
       fd_pipe[31:0] <= code_mem_rd;
     end
   end
@@ -237,7 +237,7 @@ endfunction
   always @(posedge clk) begin
     // For now, we only support R type unshifted instructions.
     // shifts and such are NOT implemented.
-    if (fd_pipe[32]) begin
+    if (~fd_pipe[32]) begin
       if (operand2_type(fd_pipe[31:0]) == operand2_is_reg)
         operand2 = rf_d2;
       else
@@ -249,7 +249,7 @@ endfunction
 
     // "Decode" what gets read and written
     always @(posedge clk) begin
-      if (fd_pipe[32]) begin
+      if (~fd_pipe[32]) begin
         rf_rs1 = inst_rn(fd_pipe[31:0]);
         rf_rs2 = inst_rm(fd_pipe[31:0]);
         if (inst_branch_islink(fd_pipe[31:0]) == inst_type_branchLink &&
@@ -266,7 +266,7 @@ endfunction
 
   // "Decode" whether we write the register file
   always @(posedge clk) begin
-    if (fd_pipe[32]) begin
+    if (~fd_pipe[32]) begin
       rf_we = 1'b0;
       data_mem_we = 1'b0;
       case (inst_type(fd_pipe[31:0]))
@@ -295,7 +295,7 @@ endfunction
   // "Decode" the branch target
   reg [31:0] branch_target;
   always @(posedge clk) begin
-    if (fd_pipe[32]) begin
+    if (~fd_pipe[32]) begin
       if(fd_pipe[27:4] == branchExchange_opcode) begin
         branch_target = rf[fd_pipe[3:0]];
       end
@@ -305,7 +305,7 @@ endfunction
   end
 
   always @(posedge clk) begin
-    if (fd_pipe[32]) begin
+    if (~fd_pipe[32]) begin
       de_pipe[31:0] = fd_pipe[31:0]; 
     end
   end
@@ -318,7 +318,7 @@ endfunction
   // "Execute" the instruction
   reg [32:0] alu_result;
   always @(posedge clk) begin
-    if (de_pipe[32]) begin
+    if (~de_pipe[32]) begin
       if (inst_branch_islink(de_pipe[31:0]) == inst_type_branchLink &&
           inst_type(de_pipe[31:0]) == inst_type_branch)
         alu_result = {1'b0, pc + 4}; // loads LR with next instruction
@@ -428,7 +428,7 @@ endfunction
     // data_addr = 0;
   //   code_addr <= 0;
     // data_mem_we = 0; //HERE. made this note just in case anything breaks
-    if (de_pipe[32]) begin
+    if (~de_pipe[32]) begin
       if (!nreset)
           pc <= 32'd0;
       else begin
@@ -463,9 +463,79 @@ endfunction
   end
 
   always @(posedge clk) begin
-    if (de_pipe[32]) begin
-      em_pipe[31:0] = de_pipe[31:0]; 
+    fd_pipe[32] <= 1'b0;
+    de_pipe[32] <= fd_pipe[32];
+    if (~de_pipe[32]) begin
+      if (inst_type(de_pipe[31:0]) == inst_type_branch || de_pipe[27:4] == branchExchange_opcode) begin
+          case (inst_cond(de_pipe[31:0]))
+            cond_eq: if (cpsr[cpsr_z] == 1'b1) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_ne: if (~cpsr[cpsr_z]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_cs: if (cpsr[cpsr_c]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_cc: if (~cpsr[cpsr_c]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_ns: if (cpsr[cpsr_n]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_nc: if (~cpsr[cpsr_n]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_vs: if (cpsr[cpsr_v]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_vc: if (~cpsr[cpsr_v]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_hi: if (cpsr[cpsr_c] && ~cpsr[cpsr_z]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_ls: if (~cpsr[cpsr_c] || cpsr[cpsr_z]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_ge: if (cpsr[cpsr_n] == cpsr[cpsr_v]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_lt: if (cpsr[cpsr_n] != cpsr[cpsr_v]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_gt: if (~cpsr[cpsr_z] && cpsr[cpsr_n] == cpsr[cpsr_v]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_le: if (cpsr[cpsr_z] || cpsr[cpsr_n] != cpsr[cpsr_v]) begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+            cond_al: begin
+                fd_pipe[32] <= 1'b1;
+                de_pipe[32] <= 1'b1;
+              end
+          endcase
+            // pc <= branch_target; marks comment
+        end
     end
+  end
+
+  always @(posedge clk) begin
+    em_pipe <= de_pipe;
   end
 
   reg [32:0] em_pipe; 
@@ -474,7 +544,7 @@ endfunction
 // Memory
 
   always @(posedge clk) begin
-    if (em_pipe[32]) begin
+    if (~em_pipe[32]) begin
       if (data_mem_we)
           data_mem[data_addr] <= data_mem_wd;
       data_mem_rd <= data_mem[data_addr];
@@ -482,9 +552,7 @@ endfunction
   end
 
   always @(posedge clk) begin
-    if (em_pipe[32]) begin
-      mwb_pipe[31:0] = em_pipe[31:0]; 
-    end
+    mwb_pipe <= em_pipe; 
   end
 
   reg [32:0] mwb_pipe; 
@@ -494,7 +562,7 @@ endfunction
 
   // "Write back" the instruction
   always @(posedge clk) begin
-    if (mwb_pipe[32]) begin
+    if (~mwb_pipe[32]) begin
       if (nreset && rf_we)
         if (rf_ws != r15) // Also writes from data mem to register
           rf[rf_ws] <= rf_wd;
