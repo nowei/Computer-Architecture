@@ -380,7 +380,7 @@ endfunction
                       end
           opcode_rsb: begin
                         alu_result = operand2 + ~rf_d1 + 1;
-                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
                           cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
                                           (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
                       end
@@ -404,7 +404,7 @@ endfunction
                       end
           opcode_rsc: begin
                         alu_result = operand2 + ~rf_d1 + cpsr[cpsr_c];
-                        if (inst[20] == 1'b1 && rf_ws != 4'b1111)
+                        if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
                           cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
                                           (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
                       end
@@ -581,7 +581,7 @@ endfunction
     em_rf_ws <= rf_ws;
     em_data_mem_we <= data_mem_we;
     em_data_addr <= data_addr;
-    em_data_mem_we <= data_mem_we;
+    em_data_mem_wd <= data_mem_wd;
   end
 
   reg [32:0] em_pipe; 
