@@ -246,11 +246,13 @@ endfunction
     if (~fd_pipe[32]) begin// checks if valid // MAYBE WE DON'T NEED THISSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS
       fd_pipe[31:0] <= code_mem_rd;
       //Im pretty sure we need to pass in PC to this pipe reg
+      fd_pc <= pc; // Maybe this needs to be pc + 4
     end
   end
 
 
   reg [32:0] fd_pipe; 
+  reg [31:0] fd_pc;
 
 ///////////////////////////////////////
 // DECODE
@@ -281,8 +283,8 @@ endfunction
           rf_ws = r14;
         else if (inst_type(fd_pipe[31:0]) == inst_type_ldr_str) begin
           if (inst_ldrstr_isload(fd_pipe[31:0]) == inst_type_load)
-            rf_ws = rf_rs1; //maybe this broke it? but highly doubt it
-        end
+            rf_ws = rf_rs1; 
+          end
         else
           rf_ws = inst_rd(fd_pipe[31:0]);
       end
@@ -324,7 +326,7 @@ endfunction
         branch_target = rf[fd_pipe[3:0]];
       end
       else
-        branch_target = pc + 8 + inst_branch_imm(fd_pipe[31:0]);
+        branch_target = fd_pc + 8 + inst_branch_imm(fd_pipe[31:0]);
     end
   end
 
@@ -332,10 +334,12 @@ endfunction
     if (~fd_pipe[32]) begin
       de_pipe[31:0] = fd_pipe[31:0]; //<--change this to what we decoded from inst in fd_pip
       //de_pipe[whatever size needed] = {branch_target, data_mem_we, rf_we, rf_rs1(rn), rf_rs2(rm), rf_ws, operand2(?), flush(?), stall(?};
+      de_pc <= fd_pc;
     end
   end
 
   reg [32:0] de_pipe; 
+  reg [31:0] de_pc;
 
 ///////////////////////////////////////
 // EXECUTE
@@ -448,6 +452,7 @@ endfunction
     end
   end
 
+  // Executes 
   always @(posedge clk) begin
     // data_mem_wd = 0; //added this in from lab 1 starter from here to
     // data_addr = 0;
@@ -491,6 +496,9 @@ endfunction
     fd_pipe[32] <= 1'b0;
     de_pipe[32] <= fd_pipe[32];
     if (~de_pipe[32]) begin
+      // *************************************************
+      // ADD MORE CONDITIONS SO THAT WE CAN STALL
+      // *************************************************
       if (inst_type(de_pipe[31:0]) == inst_type_branch || de_pipe[27:4] == branchExchange_opcode) begin
           case (inst_cond(de_pipe[31:0]))
             cond_eq: if (cpsr[cpsr_z] == 1'b1) begin
@@ -559,9 +567,21 @@ endfunction
     end
   end
 
+  reg em_rf_we;
+  reg [31:0] em_rf_wd;
+  reg [3:0] em_rf_ws;
+  reg em_data_mem_we;
+  reg [data_width - 1:0] em_data_addr;
+  reg [data_width - 1:0] em_data_mem_wd;
   always @(posedge clk) begin
     em_pipe <= de_pipe; 
     //em_pipe[probs new size] = {cpsr, alu_result, rf_wd, flush, stall};
+    em_rf_we <= rf_we;
+    em_rf_wd <= rf_wd;
+    em_rf_ws <= rf_ws;
+    em_data_mem_we <= data_mem_we;
+    em_data_addr <= data_addr;
+    em_data_mem_we <= data_mem_we;
   end
 
   reg [32:0] em_pipe; 
@@ -571,28 +591,33 @@ endfunction
 
   always @(posedge clk) begin
     if (~em_pipe[32]) begin
-      if (data_mem_we)
-          data_mem[data_addr] <= data_mem_wd;
-      data_mem_rd <= data_mem[data_addr];
+      if (em_data_mem_we)
+          data_mem[em_data_addr] <= em_data_mem_wd;
+      data_mem_rd <= data_mem[em_data_addr];
     end
   end
 
   always @(posedge clk) begin
     mwb_pipe <= em_pipe; 
+    mwb_rf_we <= em_rf_we;
+    mwb_rf_ws <= em_rf_ws;
+    mwb_rf_wd <= em_rf_wd;
     //
   end
 
   reg [32:0] mwb_pipe; 
-
+  reg mwb_rf_we;
+  reg [31:0] mwb_rf_wd;
+  reg [3:0] mwb_rf_ws;
 ///////////////////////////////////////
 // Write back
 
   // "Write back" the instruction
   always @(posedge clk) begin
     if (~mwb_pipe[32]) begin
-      if (nreset && rf_we)
-        if (rf_ws != r15) // Also writes from data mem to register
-          rf[rf_ws] <= rf_wd;
+      if (nreset && mwb_rf_we)
+        if (mwb_rf_ws != r15) // Also writes from data mem to register
+          rf[mwb_rf_ws] <= mwb_rf_wd;
     end
   end
 
