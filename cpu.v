@@ -96,6 +96,12 @@ end
   assign rf_d1 = (rf_rs1 == r15) ? pc : rf[rf_rs1];
   assign rf_d2 = (rf_rs2 == r15) ? pc : rf[rf_rs2];
 
+  wire [31:0] rf_d1_df; // This is pretty jank
+  wire [31:0] rf_d2_df;
+  assign rf_d1_df = (rf_rs1 == em_rf_ws && em_rf_we) ? em_rf_wd : ((rf_rs1 == mwb_rf_ws && mwb_rf_we) ? mwb_rf_wd : rf_d1);
+  assign rf_d2_df = (rf_rs2 == em_rf_ws && em_rf_we) ? em_rf_wd : ((rf_rs2 == mwb_rf_ws && mwb_rf_we) ? mwb_rf_wd : rf_d2);
+
+
 function automatic [3:0] inst_rn;
   input [31:0] inst;
   inst_rn = inst[19:16];
@@ -265,7 +271,7 @@ endfunction
     // shifts and such are NOT implemented.
     if (~fd_pipe[32]) begin
       if (operand2_type(fd_pipe[31:0]) == operand2_is_reg)
-        operand2 = rf_d2;
+        operand2 = rf_d2_df;
       else
         operand2 = inst_data_proc_imm(fd_pipe[31:0]);
       end
@@ -370,61 +376,61 @@ endfunction
       begin
         alu_result = 33'h0_0000_0000;
         case (inst_opcode(de_pipe[31:0]))
-          opcode_and: alu_result = rf_d1 & operand2;
-          opcode_eor: alu_result = (rf_d1 & ~operand2) | (~rf_d1 & operand2);
+          opcode_and: alu_result = rf_d1_df & operand2;
+          opcode_eor: alu_result = (rf_d1_df & ~operand2) | (~rf_d1_df & operand2);
           opcode_sub: begin
-                        alu_result = rf_d1 + ~operand2 + 1;
+                        alu_result = rf_d1_df + ~operand2 + 1;
                         if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
-                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
-                                          (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1_df > 0 && ~operand2 + 1 > 0) ||
+                                          (alu_result > 0 && rf_d1_df < 0 && ~operand2 + 1 < 0) ? 1 : 0);
                       end
           opcode_rsb: begin
-                        alu_result = operand2 + ~rf_d1 + 1;
+                        alu_result = operand2 + ~rf_d1_df + 1;
                         if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
-                          cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
-                                          (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
+                          cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1_df + 1 > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && ~rf_d1_df + 1 < 0 && operand2 < 0) ? 1 : 0);
                       end
           opcode_add: begin
-                        alu_result = rf_d1 + operand2;
+                        alu_result = rf_d1_df + operand2;
                         if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
-                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
-                                          (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1_df > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && rf_d1_df < 0 && operand2 < 0) ? 1 : 0);
                       end
           opcode_adc: begin
-                        alu_result = rf_d1 + operand2 + cpsr[cpsr_c];
+                        alu_result = rf_d1_df + operand2 + cpsr[cpsr_c];
                         if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
-                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
-                                          (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1_df > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && rf_d1_df < 0 && operand2 < 0) ? 1 : 0);
                       end
           opcode_sbc: begin
-                        alu_result = rf_d1 + ~operand2 + cpsr[cpsr_c];
+                        alu_result = rf_d1_df + ~operand2 + cpsr[cpsr_c];
                         if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
-                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1 > 0) ||
-                                          (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1_df > 0 && ~operand2 + 1 > 0) ||
+                                          (alu_result > 0 && rf_d1_df < 0 && ~operand2 + 1 < 0) ? 1 : 0);
                       end
           opcode_rsc: begin
-                        alu_result = operand2 + ~rf_d1 + cpsr[cpsr_c];
+                        alu_result = operand2 + ~rf_d1_df + cpsr[cpsr_c];
                         if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
-                          cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1 + 1 > 0 && operand2 > 0) ||
-                                          (alu_result > 0 && ~rf_d1 + 1 < 0 && operand2 < 0) ? 1 : 0);
+                          cpsr[cpsr_v] = ((alu_result < 0 && ~rf_d1_df + 1 > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && ~rf_d1_df + 1 < 0 && operand2 < 0) ? 1 : 0);
                       end
-          opcode_tst: alu_result = rf_d1 & operand2;
-          opcode_teq: alu_result = rf_d1 ^ operand2;
+          opcode_tst: alu_result = rf_d1_df & operand2;
+          opcode_teq: alu_result = rf_d1_df ^ operand2;
           opcode_cmp: begin
-                        alu_result = rf_d1 + ~operand2 + 1;
+                        alu_result = rf_d1_df + ~operand2 + 1;
                         if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
-                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && ~operand2 + 1> 0) ||
-                                          (alu_result > 0 && rf_d1 < 0 && ~operand2 + 1 < 0) ? 1 : 0);
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1_df > 0 && ~operand2 + 1> 0) ||
+                                          (alu_result > 0 && rf_d1_df < 0 && ~operand2 + 1 < 0) ? 1 : 0);
                       end
           opcode_cmpn: begin
-                        alu_result = rf_d1 + operand2;
+                        alu_result = rf_d1_df + operand2;
                         if (de_pipe[20] == 1'b1 && rf_ws != 4'b1111)
-                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1 > 0 && operand2 > 0) ||
-                                          (alu_result > 0 && rf_d1 < 0 && operand2 < 0) ? 1 : 0);
+                          cpsr[cpsr_v] = ((alu_result < 0 && rf_d1_df > 0 && operand2 > 0) ||
+                                          (alu_result > 0 && rf_d1_df < 0 && operand2 < 0) ? 1 : 0);
                       end
-          opcode_orr: alu_result = rf_d1 | operand2;
+          opcode_orr: alu_result = rf_d1_df | operand2;
           opcode_mov: alu_result = operand2;
-          opcode_bic: alu_result = rf_d1 & ~operand2;
+          opcode_bic: alu_result = rf_d1_df & ~operand2;
           opcode_mvn: alu_result = 32'hFFFF_FFFF ^ operand2;
         endcase
 
