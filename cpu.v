@@ -52,16 +52,34 @@ module cpu(
   localparam do_nothing = 32'h00000000;
 
   initial begin
+//*************LAB 2 DEMO****************//
   // code_mem[0] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1
   // //code_mem[1] = 32'b1110_101_0_11111111_11111111_11111101;  // unconditional branch -12 which is PC = (PC + 8) - 12 = PC - 4
-   code_mem[1] = {cond_al, branch_opcode, 24'd0}; //unconditional branch
-   code_mem[3] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
-   code_mem[4] = {cond_ne, branch_opcode, 24'd0};//conditional branch BNE
-   code_mem[7] = {cond_al, branchLink_opcode, 24'd0}; //BL
-   code_mem[10] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r1, 12'd0}; //STR R2 at R2+0
-   code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r1, 12'd0};//LDR R3 with [R2+0]
-   code_mem[14] = {cond_al, branchExchange_opcode, r14};
-
+//    code_mem[1] = {cond_al, branch_opcode, 24'd0}; //unconditional branch
+//    code_mem[3] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
+//    code_mem[4] = {cond_ne, branch_opcode, 24'd0};//conditional branch BNE
+//    code_mem[7] = {cond_al, branchLink_opcode, 24'd0}; //BL
+//    code_mem[10] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r1, 12'd0}; //STR R2 at R2+0
+//    code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r1, 12'd0};//LDR R3 with [R2+0]
+//    code_mem[14] = {cond_al, branchExchange_opcode, r14};
+    
+//**********LAB 3 DEMO Arithmetic (Data hazards with arith and memory)**************//
+    code_mem[0] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so r2 = 1
+    code_mem[1] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[2] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r2, 12'd0}; //STR R2 at [R2+0]
+    code_mem[3] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};//LDR R3 with [R2+0] r3 = 2
+    code_mem[4] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r3}; //ADD r2, r2, r3 = 2 so r2 = 4
+    code_mem[5] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r3, r3, r2 = 4 so now r3 = 6 
+//**********LAB 3 DEMO BRANCHES**************//
+//     code_mem[0] = {cond_al, branch_opcode, 24'd0}; //unconditional branch
+//     code_mem[1] = {cond_ne, branch_opcode, 24'd0};//conditional branch BNE
+//     code_mem[2] = {cond_al, branchLink_opcode, 24'd0}; //BL
+//     code_mem[3] = {cond_al, branch_opcode, 24'd0}; //unconditional branch
+//     code_mem[4] = {cond_ne, branch_opcode, 24'd0};//conditional branch BNE
+//     code_mem[5] = {cond_al, branchLink_opcode, 24'd0}; //BL
+//     code_mem[6] = {cond_al, branch_opcode, 24'd0}; //unconditional branch
+//     code_mem[7] = {cond_ne, branch_opcode, 24'd0};//conditional branch BNE
+//     code_mem[8] = {cond_al, branchLink_opcode, 24'd0}; //BL
   end
 
   reg [code_width - 1:0]  pc;
