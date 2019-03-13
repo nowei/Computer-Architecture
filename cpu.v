@@ -14,18 +14,14 @@ module cpu(
 
   assign debug_port1 = pc[9:2];
   assign debug_port2 = rf[2][7:0];
-  assign debug_port3 = reading2;
-
-  reg [7:0] reading1;
-  reg [7:0] reading2;
-  always @(negedge clk) begin
-
-    reading2 <= rf_d1_df[7:0];
-  end
+  assign debug_port3 = reading;
   //STORE WORKS data_mem[data_addr][7:0]
   //data_mem_wd[7:0] & rf_wd[7:0] keeps disconnecting the USB
   //rf_ws[7:0] correct
-
+  reg [7:0] reading;
+  always @(posedge clk) begin
+    reading <= rf_d1_df[7:0];
+  end
   reg [data_width - 1:0]  data_mem[data_words - 1:0];
   reg [data_width - 1:0]  data_mem_rd;
   reg [data_width - 1:0]  data_mem_wd;
@@ -69,19 +65,19 @@ module cpu(
    // code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r1, 12'd0};//LDR R3 with [R2+0]
    // code_mem[14] = {cond_al, branchExchange_opcode, r14};
 
-    code_mem[0] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so r2 = 1
-    code_mem[1] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[2] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[3] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[4] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[5] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[6] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[7] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[8] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[9] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[10] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[11] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[12] <= {cond_al, 3'b001, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[0] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so r2 = 1
+    code_mem[1] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[2] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[3] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[4] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[5] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[6] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[7] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[8] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[9] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[10] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[11] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[12] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
     // code_mem[2] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r2, 12'd0}; //STR R2 at [R2+0]
     // code_mem[3] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};//LDR R3 with [R2+0] r3 = 2
     // code_mem[4] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r3}; //ADD r2, r2, r3 = 2 so r2 = 4
