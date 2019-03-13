@@ -14,7 +14,7 @@ module cpu(
 
   assign debug_port1 = pc[9:2];
   assign debug_port2 = rf[2][7:0];
-  assign debug_port3 = reading;
+  assign debug_port3 = rf[3][7:0];//reading;
   //STORE WORKS data_mem[data_addr][7:0]
   //data_mem_wd[7:0] & rf_wd[7:0] keeps disconnecting the USB
   //rf_ws[7:0] correct
@@ -65,24 +65,35 @@ module cpu(
    // code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r1, 12'd0};//LDR R3 with [R2+0]
    // code_mem[14] = {cond_al, branchExchange_opcode, r14};
 
-    code_mem[0] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so r2 = 1
-    code_mem[1] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[2] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[3] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[4] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[5] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[6] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[7] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[8] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[9] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[10] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[11] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    code_mem[12] <= {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
-    // code_mem[2] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r2, 12'd0}; //STR R2 at [R2+0]
-    // code_mem[3] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};//LDR R3 with [R2+0] r3 = 2
-    // code_mem[4] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r3}; //ADD r2, r2, r3 = 2 so r2 = 4
-    // code_mem[5] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r3, r3, r2 = 4 so now r3 = 6
+    // code_mem[0] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so r2 = 1
+    // code_mem[1] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[2] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[3] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // // code_mem[2] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r2, 12'd0}; //STR R2 at [R2+0]
+    // // code_mem[3] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};//LDR R3 with [R2+0] r3 = 2
+    // code_mem[4] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[5] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[6] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[7] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[8] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[9] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[10] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[11] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // code_mem[12] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    // // code_mem[2] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r2, 12'd0}; //STR R2 at [R2+0]
+    // // code_mem[3] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};//LDR R3 with [R2+0] r3 = 2
+    // // code_mem[4] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r3}; //ADD r2, r2, r3 = 2 so r2 = 4
+    // // code_mem[5] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r3, r3, r2 = 4 so now r3 = 6
 
+
+    code_mem[1] = {cond_al, branch_opcode, 24'd1}; //unconditional branch
+    code_mem[2] = {cond_al, 3'b000, opcode_add, 1'b0, r3, r3, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so now r2 = 1
+    code_mem[3] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so now r2 = 1
+    code_mem[6] = {cond_eq, branchLink_opcode, 24'd0}; //BL
+    code_mem[9] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
+    code_mem[10] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
+    code_mem[11] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r2, 12'd0};
+    code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};
   end
 
   reg [code_width - 1:0]  pc;
@@ -119,8 +130,8 @@ end
 
   wire [31:0] rf_d1_df; // This is pretty jank
   wire [31:0] rf_d2_df;
-  assign rf_d1_df = (rf_rs1 == em_rf_ws && em_rf_we) ? em_rf_wd : ((rf_rs1 == mwb_rf_ws && mwb_rf_we) ? mwb_rf_wd : rf_d1);
-  assign rf_d2_df = (rf_rs2 == em_rf_ws && em_rf_we) ? em_rf_wd : ((rf_rs2 == mwb_rf_ws && mwb_rf_we) ? mwb_rf_wd : rf_d2);
+  assign rf_d1_df = (rf_rs1 == em_rf_ws && em_rf_we) ? rf_wd : ((rf_rs1 == mwb_rf_ws && mwb_rf_we) ? mwb_rf_wd : rf_d1);
+  assign rf_d2_df = (rf_rs2 == em_rf_ws && em_rf_we) ? rf_wd : ((rf_rs2 == mwb_rf_ws && mwb_rf_we) ? mwb_rf_wd : rf_d2);
 
 function automatic [3:0] inst_rn;
   input [31:0] inst;
@@ -241,7 +252,7 @@ endfunction
 ///////////////////////////////////////
 // FETCH
 
-  reg [31:0] fd_pipe; 
+  reg [31:0] fd_pipe;
   reg [31:0] fd_pc;
   reg fd_invalid;
 //  "Fetch" from code memory into instruction bits
@@ -251,7 +262,7 @@ endfunction
       fd_pipe <= code_mem_rd;
       // inst <= code_mem_rd;
       //Im pretty sure we need to pass in PC to this pipe reg
-      fd_pc <= pc; // Maybe this needs to be pc + 4
+      fd_pc <= pc + 4; // Maybe this needs to be pc + 4
     end
   end
 
@@ -262,7 +273,7 @@ endfunction
 // "Decode" the second operand
   reg [31:0] operand2;
   // compute second operand
-  always @(posedge clk) begin
+  always @(*) begin
     // For now, we only support R type unshifted instructions.
     // shifts and such are NOT implemented.
     if (~fd_invalid) begin
@@ -274,7 +285,7 @@ endfunction
     end
 
     // "Decode" what gets read and written
-    always @(posedge clk) begin
+    always @(*) begin
       if (~fd_invalid) begin
         rf_rs1 = inst_rn(fd_pipe);
         rf_rs2 = inst_rm(fd_pipe);
@@ -283,7 +294,7 @@ endfunction
           rf_ws = r14;
         else if (inst_type(fd_pipe) == inst_type_ldr_str) begin
           if (inst_ldrstr_isload(fd_pipe) == inst_type_load)
-            rf_ws = rf_rs1; 
+            rf_ws = rf_rs1;
           end
         else
           rf_ws = inst_rd(fd_pipe);
@@ -291,7 +302,7 @@ endfunction
   end
 
   // "Decode" whether we write the register file
-  always @(posedge clk) begin
+  always @(*) begin
     if (~fd_invalid) begin
       rf_we = 1'b0;
       data_mem_we = 1'b0;
@@ -320,7 +331,7 @@ endfunction
 
   // "Decode" the branch target
   reg [31:0] branch_target;
-  always @(posedge clk) begin
+  always @(*) begin
     if (~fd_invalid) begin
       if(fd_pipe[27:4] == branchExchange_opcode) begin
         branch_target = rf[fd_pipe[3:0]];
@@ -331,10 +342,10 @@ endfunction
   end
 
 
-  reg [31:0] de_pipe; 
+  reg [31:0] de_pipe;
   reg [31:0] de_pc;
   reg de_invalid;
-  always @(posedge clk) begin
+  always @(*) begin
     if (~de_invalid) begin
       de_pipe = fd_pipe; //<--change this to what we decoded from inst in fd_pip
       //de_pipe[whatever size needed] = {branch_target, data_mem_we, rf_we, rf_rs1(rn), rf_rs2(rm), rf_ws, operand2(?), flush(?), stall(?};
@@ -454,13 +465,13 @@ endfunction
     end
   end
 
-  // Executes 
+  // Executes
   always @(posedge clk) begin
     // data_mem_wd = 0; //added this in from lab 1 starter from here to
     // data_addr = 0;
   //   code_addr <= 0;
     // data_mem_we = 0; //HERE. made this note just in case anything breaks
-    if (~de_invalid) begin
+    //if (~de_invalid) begin
       if (!nreset)
           pc <= 32'd0;
       else begin
@@ -490,7 +501,7 @@ endfunction
           endcase
             // pc <= branch_target; marks comment
         end
-      end
+      //end
     end
   end
 
@@ -574,37 +585,36 @@ endfunction
         de_invalid <= fd_invalid;
         fd_invalid <= 1'b0;
       end
-    
+
   end
 
 
-  reg [31:0] mwb_pipe; 
+  //reg [31:0] mwb_pipe;
   reg mwb_rf_we;
   reg mwb_invalid;
   reg [31:0] mwb_rf_wd;
   reg [3:0] mwb_rf_ws;
 
 
-  reg [31:0] em_pipe; 
+  //reg [31:0] em_pipe;
   reg em_rf_we;
   reg em_invalid;
-  reg [31:0] em_rf_wd;
+  //reg [31:0] em_rf_wd;
   reg [3:0] em_rf_ws;
   reg em_data_mem_we;
   reg [data_width - 1:0] em_data_addr;
-  reg [data_width - 1:0] em_data_mem_wd;
+  //reg [data_width - 1:0] em_data_mem_wd;
 
 
   always @(posedge clk) begin
-    em_pipe <= de_pipe; 
+    //em_pipe <= de_pipe;
     em_invalid <= de_invalid;
-    //em_pipe[probs new size] = {cpsr, alu_result, rf_wd, flush, stall};
     em_rf_we <= rf_we;
-    em_rf_wd <= rf_wd;
+    //em_rf_wd <= rf_wd;
     em_rf_ws <= rf_ws;
     em_data_mem_we <= data_mem_we;
     em_data_addr <= data_addr;
-    em_data_mem_wd <= data_mem_wd;
+    //em_data_mem_wd <= data_mem_wd;
   end
 
 ///////////////////////////////////////
@@ -613,17 +623,17 @@ endfunction
   always @(posedge clk) begin
     if (~em_invalid) begin
       if (em_data_mem_we)
-          data_mem[em_data_addr] <= em_data_mem_wd;
+          data_mem[em_data_addr] <= data_mem_wd;
       data_mem_rd <= data_mem[em_data_addr];
     end
   end
 
   always @(posedge clk) begin
     mwb_invalid <= em_invalid;
-    mwb_pipe <= em_pipe; 
+    //mwb_pipe <= em_pipe;
     mwb_rf_we <= em_rf_we;
+    mwb_rf_wd <= rf_wd;
     mwb_rf_ws <= em_rf_ws;
-    mwb_rf_wd <= em_rf_wd;
   end
 
 ///////////////////////////////////////
