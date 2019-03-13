@@ -65,11 +65,11 @@ module cpu(
 
 //**********LAB 3 DEMO Arithmetic (Data hazards with arith and memory)**************//
     code_mem[0] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so r2 = 1
-    code_mem[1] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2}; //ADD r2, r2, r1 = 1 so now r2 = 2
+    code_mem[1] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so now r2 = 2
     code_mem[2] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r2, 12'd0}; //STR R2 at [R2+0]
     code_mem[3] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};//LDR R3 with [R2+0] r3 = 2
     code_mem[4] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r3}; //ADD r2, r2, r3 = 2 so r2 = 4
-    code_mem[5] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r3, r3, r2 = 4 so now r3 = 6
+    code_mem[5] = {cond_al, 3'b000, opcode_add, 1'b0, r3, r3, 8'b00000000, r2}; //ADD r3, r3, r2 = 4 so now r3 = 6
 //**********LAB 3 DEMO BRANCHES**************//
     // code_mem[0] = {cond_al, branch_opcode, 24'd0}; //unconditional branch
     // code_mem[1] = {cond_gt, branch_opcode, 24'd0};//conditional branch BNE
@@ -352,7 +352,7 @@ endfunction
 
   // "Execute" the instruction
   reg [32:0] alu_result;
-  always @(negedge clk) begin //error with poseedge and uncommented ~de_valid
+  always @(*) begin //error with posedge and uncommented ~de_valid
     if (~de_invalid) begin //!!!USB MALFUNC when in @(posedge clk)
       if (inst_branch_islink(de_pipe) == inst_type_branchLink &&
           inst_type(de_pipe) == inst_type_branch)
