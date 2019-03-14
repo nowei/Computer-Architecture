@@ -13,8 +13,8 @@ module cpu(
   localparam data_addr_width = data_words_l2;
 
   assign debug_port1 = pc[9:2];
-  assign debug_port2 = rf[2][7:0];
-  assign debug_port3 = rf[3][7:0];//reading;
+  assign debug_port2 = em_data_mem_we[7:0];//rf[2][7:0];//data_mem_rd;
+  assign debug_port3 = em_data_addr[7:0];//data_mem_rd[7:0];//rf[3][7:0];
   //STORE WORKS data_mem[data_addr][7:0]
   //data_mem_wd[7:0] & rf_wd[7:0] keeps disconnecting the USB
   //rf_ws[7:0] correct
@@ -90,10 +90,11 @@ module cpu(
     code_mem[2] = {cond_al, 3'b000, opcode_add, 1'b0, r3, r3, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so now r2 = 1
     code_mem[3] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so now r2 = 1
     code_mem[6] = {cond_eq, branchLink_opcode, 24'd0}; //BL
-    code_mem[9] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
-    code_mem[10] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
-    code_mem[11] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r2, 12'd0};
-    code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};
+    //code_mem[9] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
+    // code_mem[10] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
+    // code_mem[11] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
+    code_mem[9] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r1, r1, 12'd0};
+    code_mem[10] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r1, 12'd0};
   end
 
   reg [code_width - 1:0]  pc;
