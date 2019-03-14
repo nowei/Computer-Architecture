@@ -368,17 +368,35 @@ endfunction
 
       else if (inst_type(de_pipe) == inst_type_ldr_str) begin
         data_addr = rf[inst_rd(de_pipe)] + inst_ldrstr_imm(de_pipe);
-        if (inst_ldrstr_isload(de_pipe) == inst_type_load) begin
-          // rd is source
-          //rf_wd = data_mem[data_addr];
-          alu_result = {1'b0,data_mem[data_addr]};
-          // writes to rf[inst_rn(inst)]
-        end
-        else begin // store
+
+
+
+        // CHANGED HEREEEEEEEEEEEEEEEEEEEEEE
+
+        // DON'T WRITE into ALU_RESULT because current read of data_mem is wrong
+        // due to it being updated after memory (think about instruction where we
+        // store and then load immediately after. Writing alu_result will give old
+        // value rather than the new one. To fix this, we delay the read until the
+        // memory access stage. 
+
+        // if (inst_ldrstr_isload(de_pipe) == inst_type_load) begin
+        //   // rd is source
+        //   //rf_wd = data_mem[data_addr];
+        //   alu_result = {1'b0,data_mem[data_addr]};
+        //   // writes to rf[inst_rn(inst)]
+        // end
+
+        if (inst_ldrstr_isload(de_pipe) != inst_type_load) begin // store
           // rd is destination
           data_mem_wd = rf[inst_rn(de_pipe)]; //this maybe broke it?
           // writes to data_mem[rf[inst_rd(inst)] + inst_ldrstr_imm(inst)]
         end
+
+
+
+
+
+
       end
       else
       begin
@@ -597,7 +615,7 @@ endfunction
   reg [3:0] mwb_rf_ws;
 
 
-  //reg [31:0] em_pipe;
+  reg [31:0] em_pipe;
   reg em_rf_we;
   reg em_invalid;
   //reg [31:0] em_rf_wd;
@@ -608,13 +626,13 @@ endfunction
 
 
   always @(posedge clk) begin
-    //em_pipe <= de_pipe;
+    em_pipe <= de_pipe;
     em_invalid <= de_invalid;
     em_rf_we <= rf_we;
     //em_rf_wd <= rf_wd;
     em_rf_ws <= rf_ws;
     em_data_mem_we <= data_mem_we;
-    em_data_addr <= data_addr;
+    // em_data_addr <= data_addr; COMMENTED THIS OUT to fix one cycle delay
     //em_data_mem_wd <= data_mem_wd;
   end
 
@@ -624,8 +642,8 @@ endfunction
   always @(posedge clk) begin
     if (~em_invalid) begin
       if (em_data_mem_we)
-          data_mem[em_data_addr] <= data_mem_wd;
-      data_mem_rd <= data_mem[em_data_addr];
+          data_mem[data_addr] <= data_mem_wd;
+      data_mem_rd <= data_mem[data_addr];
     end
   end
 
@@ -633,7 +651,15 @@ endfunction
     mwb_invalid <= em_invalid;
     //mwb_pipe <= em_pipe;
     mwb_rf_we <= em_rf_we;
-    mwb_rf_wd <= rf_wd;
+
+    // I MADE CHANGES HERE. Idea is that we check if we load or store before writing 
+    if (inst_type(em_pipe) == inst_type_ldr_str && inst_ldrstr_isload(inst) == inst_type_load)
+      mwb_rf_wd <= data_mem_rd;
+    else
+      mwb_rf_wd <= rf_wd;
+    
+
+
     mwb_rf_ws <= em_rf_ws;
   end
 
