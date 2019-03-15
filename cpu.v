@@ -13,8 +13,8 @@ module cpu(
   localparam data_addr_width = data_words_l2;
 
   assign debug_port1 = pc[9:2];
-  assign debug_port2 = em_data_mem_we[7:0];//rf[2][7:0];//data_mem_rd;
-  assign debug_port3 = em_data_addr[7:0];//data_mem_rd[7:0];//rf[3][7:0];
+  assign debug_port2 = rf[3][7:0];//em_data_mem_we[7:0];//rf[2][7:0];//data_mem_rd;
+  assign debug_port3 = mwb_rf_wd[7:0];//em_data_addr[7:0];//data_mem_rd[7:0];//rf[3][7:0];
   //STORE WORKS data_mem[data_addr][7:0]
   //data_mem_wd[7:0] & rf_wd[7:0] keeps disconnecting the USB
   //rf_ws[7:0] correct
@@ -608,17 +608,10 @@ endfunction
   end
 
 
-  //reg [31:0] mwb_pipe;
-  reg mwb_rf_we;
-  reg mwb_invalid;
-  reg [31:0] mwb_rf_wd;
-  reg [3:0] mwb_rf_ws;
-
 
   reg [31:0] em_pipe;
   reg em_rf_we;
   reg em_invalid;
-  //reg [31:0] em_rf_wd;
   reg [3:0] em_rf_ws;
   reg em_data_mem_we;
   reg [data_width - 1:0] em_data_addr;
@@ -629,7 +622,6 @@ endfunction
     em_pipe <= de_pipe;
     em_invalid <= de_invalid;
     em_rf_we <= rf_we;
-    //em_rf_wd <= rf_wd;
     em_rf_ws <= rf_ws;
     em_data_mem_we <= data_mem_we;
     // em_data_addr <= data_addr; COMMENTED THIS OUT to fix one cycle delay
@@ -647,13 +639,22 @@ endfunction
     end
   end
 
+
+
+  //reg [31:0] mwb_pipe;
+  reg mwb_rf_we;
+  reg mwb_invalid;
+  reg [31:0] mwb_rf_wd;
+  reg [3:0] mwb_rf_ws;
+
+
   always @(posedge clk) begin
     mwb_invalid <= em_invalid;
     //mwb_pipe <= em_pipe;
     mwb_rf_we <= em_rf_we;
 
     // I MADE CHANGES HERE. Idea is that we check if we load or store before writing 
-    if (inst_type(em_pipe) == inst_type_ldr_str && inst_ldrstr_isload(inst) == inst_type_load)
+    if (inst_type(em_pipe) == inst_type_ldr_str && inst_ldrstr_isload(em_pipe) == inst_type_load)
       mwb_rf_wd <= data_mem_rd;
     else
       mwb_rf_wd <= rf_wd;
