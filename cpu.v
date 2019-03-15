@@ -96,8 +96,8 @@ module cpu(
     code_mem[10] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};//ADD r2, r2, r1 @r2 = 2
     code_mem[11] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2};//ADD r2, r2, r2 @r2 = 4
     //Memory load Hazards
-    code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r1, r2, 12'd0};  //STR r1, [r2 + 0] @mem[r2 + 0] = 1
-    code_mem[13] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};  //LDR r3, [r2 + 0] @r3 = 1
+    code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r2, r1, 12'd0};  //STR r2, [r1 + 0] @mem[r2 + 0] = 4 first time around
+    code_mem[13] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r1, 12'd0};  //LDR r3, [r1 + 0] @r3 = 4 first time around, matches r2 later
   end
 
   reg [code_width - 1:0]  pc;
@@ -129,6 +129,29 @@ end
   reg rf_we;
   wire [31:0] rf_d1;
   wire [31:0] rf_d2;
+
+  // Pipe-lined data
+  reg [31:0] fd_pipe;
+  reg [31:0] fd_pc;
+  reg fd_invalid;
+
+  reg [31:0] de_pipe;
+  reg [31:0] de_pc;
+  reg de_invalid;
+  
+  reg [31:0] em_pipe;
+  reg em_rf_we;
+  reg em_invalid;
+  reg [3:0] em_rf_ws;
+  reg em_data_mem_we;
+  reg [data_width - 1:0] em_data_addr;
+  //reg [data_width - 1:0] em_data_mem_wd;
+
+  //reg [31:0] mwb_pipe;
+  reg mwb_rf_we;
+  reg mwb_invalid;
+  reg [31:0] mwb_rf_wd;
+  reg [3:0] mwb_rf_ws;
 
   assign rf_d1 = (rf_rs1 == r15) ? pc : rf[rf_rs1];
   assign rf_d2 = (rf_rs2 == r15) ? pc : rf[rf_rs2];
@@ -257,9 +280,6 @@ endfunction
 ///////////////////////////////////////
 // FETCH
 
-  reg [31:0] fd_pipe;
-  reg [31:0] fd_pc;
-  reg fd_invalid;
 //  "Fetch" from code memory into instruction bits
   // reg [31:0] inst;
   always @(posedge clk) begin
@@ -347,9 +367,6 @@ endfunction
   end
 
 
-  reg [31:0] de_pipe;
-  reg [31:0] de_pc;
-  reg de_invalid;
   always @(*) begin
     if (~de_invalid) begin
       de_pipe = fd_pipe; //<--change this to what we decoded from inst in fd_pip
@@ -389,10 +406,16 @@ endfunction
         //   alu_result = {1'b0,data_mem[data_addr]};
         //   // writes to rf[inst_rn(inst)]
         // end
+  // assign rf_d1_df = (rf_rs1 == em_rf_ws && em_rf_we) ? rf_wd : ((rf_rs1 == mwb_rf_ws && mwb_rf_we) ? mwb_rf_wd : rf_d1);
 
         if (inst_ldrstr_isload(de_pipe) != inst_type_load) begin // store
           // rd is destination
-          data_mem_wd = rf[inst_rn(de_pipe)]; //this maybe broke it?
+          if (inst_rn(de_pipe) == em_rf_ws)
+            data_mem_wd = rf_wd;
+          else if (inst_rn(de_pipe) == mwb_rf_ws)
+            data_mem_wd = mwb_rf_wd;
+          else
+            data_mem_wd = rf[inst_rn(de_pipe)];
           // writes to data_mem[rf[inst_rd(inst)] + inst_ldrstr_imm(inst)]
         end
 
@@ -611,17 +634,6 @@ endfunction
 
   end
 
-
-
-  reg [31:0] em_pipe;
-  reg em_rf_we;
-  reg em_invalid;
-  reg [3:0] em_rf_ws;
-  reg em_data_mem_we;
-  reg [data_width - 1:0] em_data_addr;
-  //reg [data_width - 1:0] em_data_mem_wd;
-
-
   always @(posedge clk) begin
     em_pipe <= de_pipe;
     em_invalid <= de_invalid;
@@ -644,12 +656,6 @@ endfunction
   end
 
 
-
-  //reg [31:0] mwb_pipe;
-  reg mwb_rf_we;
-  reg mwb_invalid;
-  reg [31:0] mwb_rf_wd;
-  reg [3:0] mwb_rf_ws;
 
 
   always @(posedge clk) begin
