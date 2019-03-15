@@ -13,8 +13,8 @@ module cpu(
   localparam data_addr_width = data_words_l2;
 
   assign debug_port1 = pc[9:2];
-  assign debug_port2 = rf[3][7:0];//em_data_mem_we[7:0];//rf[2][7:0];//data_mem_rd;
-  assign debug_port3 = mwb_rf_wd[7:0];//em_data_addr[7:0];//data_mem_rd[7:0];//rf[3][7:0];
+  assign debug_port2 = rf[2][7:0];//em_data_mem_we[7:0];//rf[2][7:0];//data_mem_rd;
+  assign debug_port3 = rf[3][7:0];//em_data_addr[7:0];//data_mem_rd[7:0];//rf[3][7:0];
   //STORE WORKS data_mem[data_addr][7:0]
   //data_mem_wd[7:0] & rf_wd[7:0] keeps disconnecting the USB
   //rf_ws[7:0] correct
@@ -42,6 +42,7 @@ module cpu(
   localparam r1 = 4'b0001;
   localparam r2 = 4'b0010;
   localparam r3 = 4'b0011;
+  localparam r4 = 4'b0100;
   localparam r15 = 4'b1111;
   localparam r14 = 4'b1110; //Link Register
 
@@ -85,16 +86,18 @@ module cpu(
     // // code_mem[4] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r3}; //ADD r2, r2, r3 = 2 so r2 = 4
     // // code_mem[5] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r3, r3, r2 = 4 so now r3 = 6
 
-
-    code_mem[1] = {cond_al, branch_opcode, 24'd1}; //unconditional branch
-    code_mem[2] = {cond_al, 3'b000, opcode_add, 1'b0, r3, r3, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so now r2 = 1
-    code_mem[3] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 = 1 so now r2 = 1
-    code_mem[6] = {cond_eq, branchLink_opcode, 24'd0}; //BL
-    //code_mem[9] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
-    // code_mem[10] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
-    // code_mem[11] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};
-    code_mem[9] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r1, r1, 12'd0};
-    code_mem[10] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r1, 12'd0};
+    //Branches taken and untaken
+    code_mem[1] = {cond_al, branch_opcode, 24'd1}; //unconditional B taken
+    code_mem[2] = {cond_al, 3'b000, opcode_add, 1'b0, r3, r3, 8'b00000000, r1}; //branched over ie no op
+    code_mem[3] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //branched over ie no op
+    code_mem[6] = {cond_eq, branchLink_opcode, 24'd0}; //BL untaken
+    //Data forwarding
+    code_mem[9] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1}; //ADD r2, r2, r1 @r2 = 1
+    code_mem[10] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r1};//ADD r2, r2, r1 @r2 = 2
+    code_mem[11] = {cond_al, 3'b000, opcode_add, 1'b0, r2, r2, 8'b00000000, r2};//ADD r2, r2, r2 @r2 = 4
+    //Memory load Hazards
+    code_mem[12] = {cond_al,inst_type_ldr_str, IPUBWLbits_str, r1, r2, 12'd0};  //STR r1, [r2 + 0] @mem[r2 + 0] = 1
+    code_mem[13] = {cond_al,inst_type_ldr_str, IPUBWLbits_ldr, r3, r2, 12'd0};  //LDR r3, [r2 + 0] @r3 = 1
   end
 
   reg [code_width - 1:0]  pc;
@@ -109,6 +112,7 @@ initial begin
   rf[1] <= 32'd1;     // for testing
   // rf[2] <= 32'd1;
   // rf[3] <= 32'd3;
+  //rf[4] <= 32'd2;
   // rf[r14] <= 32'b0;
 end
 
@@ -377,7 +381,7 @@ endfunction
         // due to it being updated after memory (think about instruction where we
         // store and then load immediately after. Writing alu_result will give old
         // value rather than the new one. To fix this, we delay the read until the
-        // memory access stage. 
+        // memory access stage.
 
         // if (inst_ldrstr_isload(de_pipe) == inst_type_load) begin
         //   // rd is source
@@ -653,12 +657,12 @@ endfunction
     //mwb_pipe <= em_pipe;
     mwb_rf_we <= em_rf_we;
 
-    // I MADE CHANGES HERE. Idea is that we check if we load or store before writing 
+    // I MADE CHANGES HERE. Idea is that we check if we load or store before writing
     if (inst_type(em_pipe) == inst_type_ldr_str && inst_ldrstr_isload(em_pipe) == inst_type_load)
       mwb_rf_wd <= data_mem_rd;
     else
       mwb_rf_wd <= rf_wd;
-    
+
 
 
     mwb_rf_ws <= em_rf_ws;
